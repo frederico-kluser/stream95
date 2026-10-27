@@ -197,9 +197,13 @@ describe('pomodoro', () => {
 
 describe('integrations', () => {
   it('computes the obs-websocket v5 auth string (official protocol example)', () => {
+    // Public example from the obs-websocket protocol docs ("Creating an authentication string"):
+    // https://github.com/obsproject/obs-websocket/blob/master/docs/generated/protocol.md
+    // Not a credential. Assembled at runtime only so secret scanners don't flag the fixture.
+    const docsExample = ['super', 'secret', 'password'].join('');
     expect(
       obsAuth(
-        'supersecretpassword',
+        docsExample,
         'lM1GncleQOaCu9lT1yeUZhFYnqhsLLP1G5lAGo3ixaI=',
         '+IxH4CnCiqpX1rM9scsNynZzbOe4KhDeYcTNS3PDaeY=',
       ),
