@@ -1,0 +1,17 @@
+{
+  "name": "@stream95/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Tipos, eventos e configurações compartilhados entre o servidor e os overlays do stream95.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  }
+}

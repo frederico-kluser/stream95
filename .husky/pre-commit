@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+# .husky/pre-commit — qualidade local antes de o commit existir (lint-staged).
+# Adapte aos linters do projeto; o CI continua a ser o gate final.
+npx lint-staged

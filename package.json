@@ -1,0 +1,67 @@
+{
+  "name": "stream95",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Overlay de live estilo Windows 95 (React95) para canais de programação old school: chat moderado por IA, leitura dos comentários em voz, alertas, Clippy e cenas prontas para o OBS.",
+  "license": "MIT",
+  "author": "Frederico Kluser",
+  "homepage": "https://github.com/frederico-kluser/stream95#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/frederico-kluser/stream95.git"
+  },
+  "bugs": {
+    "url": "https://github.com/frederico-kluser/stream95/issues"
+  },
+  "keywords": [
+    "twitch",
+    "obs",
+    "overlay",
+    "react95",
+    "windows-95",
+    "chat-moderation",
+    "tts",
+    "clippy",
+    "openrouter"
+  ],
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n server,overlay -c cyan,magenta \"npm run dev -w @stream95/server\" \"npm run dev -w @stream95/overlay\"",
+    "build": "npm run build -w @stream95/overlay && npm run build -w @stream95/server",
+    "start": "node apps/server/dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc -p obs/tsconfig.json",
+    "lint": "biome lint . && npm run typecheck",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "check": "npm run lint && npm run format:check && npm test && npm run build",
+    "twitch:login": "npm run twitch:login -w @stream95/server",
+    "obs:collection": "tsx obs/build-scene-collection.ts",
+    "bench:moderation": "npm run bench:moderation -w @stream95/server --",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.3",
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
+    "@types/node": "^26.6.5",
+    "@vitest/coverage-v8": "^5.0.5",
+    "concurrently": "^10.0.6",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.5"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,mjs,cjs,json,jsonc,css,md}": "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true"
+  }
+}

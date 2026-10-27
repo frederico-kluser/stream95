@@ -1,0 +1,31 @@
+{
+  "name": "@stream95/server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Servidor local do stream95: chat da Twitch, moderação por IA, TTS, Clippy, alertas e WebSocket para os overlays.",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json",
+    "twitch:login": "tsx src/twitch/login-cli.ts",
+    "bench:moderation": "tsx scripts/bench-moderation.ts"
+  },
+  "dependencies": {
+    "@fastify/static": "^10.1.8",
+    "@fastify/websocket": "^11.3.4",
+    "@stream95/shared": "*",
+    "@twurple/auth": "^8.2.0",
+    "@twurple/chat": "^8.2.0",
+    "fastify": "^5.12.7",
+    "obscenity": "^0.4.6",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1",
+    "tsup": "^9.0.0",
+    "tsx": "^4.23.15"
+  }
+}
