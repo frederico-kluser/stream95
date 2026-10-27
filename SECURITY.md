@@ -80,6 +80,9 @@ The project maintains the following supply-chain protections; keep them enabled:
 - **Rulesets** on `main`: pull request required, required status checks, linear history,
   squash-only merges, no force pushes or deletion, branch naming, and immutable `v*` tags.
 - **OpenSSF Scorecard** monitoring (`scorecard.yml`) with published results.
+- **CodeQL** static analysis (`codeql.yml`) on every pull request, on `main` and weekly.
+- **Dependency review** (`dependency-review.yml`) fails pull requests that add dependencies with
+  high or critical advisories.
 - **Pinned GitHub Actions** (full commit SHA, version in a comment) so that third-party action
   tags cannot be moved underneath us.
 
