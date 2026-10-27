@@ -1,4 +1,5 @@
 import {
+  type AttentionItem,
   type ChatMessage,
   type ClientEvent,
   type ClientRole,
@@ -6,6 +7,7 @@ import {
   defaultSettings,
   type GithubEvent,
   type ModeratedMessage,
+  type ModerationSignals,
   type PollState,
   type PomodoroState,
   type ServerEvent,
@@ -20,6 +22,8 @@ export type StreamState = {
   chat: ModeratedMessage[];
   queue: ModeratedMessage[];
   log: ModeratedMessage[];
+  /** Questions and technical problems flagged by Jev (dock only). */
+  attention: AttentionItem[];
   incoming: ChatMessage[];
   poll: PollState | null;
   pomodoro: PomodoroState;
@@ -36,6 +40,7 @@ export const initialState = (): StreamState => ({
   chat: [],
   queue: [],
   log: [],
+  attention: [],
   incoming: [],
   poll: null,
   pomodoro: { mode: 'idle', running: false, remainingMs: 0, durationMs: 0, cycle: 0 },
@@ -45,6 +50,13 @@ export const initialState = (): StreamState => ({
   scene: null,
   obsScenes: [],
 });
+
+/** Jev's signals arrive after the message (background analysis): attach them where it is listed. */
+function withSignals(list: ModeratedMessage[], id: string, signals: ModerationSignals): ModeratedMessage[] {
+  return list.some((m) => m.id === id)
+    ? list.map((m) => (m.id === id ? { ...m, verdict: { ...m.verdict, signals } } : m))
+    : list;
+}
 
 /** Pure reducer: persistent state lives here; transient events (alerts, tts…) only go to listeners. */
 export function reduce(state: StreamState, e: ServerEvent): StreamState {
@@ -57,6 +69,7 @@ export function reduce(state: StreamState, e: ServerEvent): StreamState {
         chat: e.snapshot.chat,
         queue: e.snapshot.queue,
         log: e.snapshot.log,
+        attention: e.snapshot.attention ?? [],
         poll: e.snapshot.poll,
         pomodoro: e.snapshot.pomodoro,
         counters: e.snapshot.counters,
@@ -83,6 +96,10 @@ export function reduce(state: StreamState, e: ServerEvent): StreamState {
       return { ...state, queue: e.queue };
     case 'mod:log':
       return { ...state, log: [...state.log, e.item].slice(-150) };
+    case 'mod:signals':
+      return { ...state, log: withSignals(state.log, e.id, e.signals), chat: withSignals(state.chat, e.id, e.signals) };
+    case 'mod:attention':
+      return { ...state, attention: [...state.attention, e.item].slice(-30) };
     case 'poll':
       return { ...state, poll: e.poll };
     case 'pomodoro':

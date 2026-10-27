@@ -773,6 +773,27 @@ body.s95-opaque {
   box-shadow: var(--r95-shadow-in);
 }
 
+.s95-log-line .s95-tag {
+  margin-left: 4px;
+}
+
+.s95-attention {
+  padding: 2px 0;
+  border-bottom: 1px dotted var(--r95-color-borderDark);
+}
+
+.s95-attention-techIssue .s95-tag,
+.s95-tag-warn {
+  background: #ffffcc;
+  color: #800000;
+}
+
+.s95-attention-question .s95-tag,
+.s95-tag-info {
+  background: #e0e8ff;
+  color: #000080;
+}
+
 .s95-log {
   max-height: 260px;
   overflow: auto;

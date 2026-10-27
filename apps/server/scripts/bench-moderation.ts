@@ -3,13 +3,23 @@
  *
  *   npm run bench:moderation                      # default candidates
  *   npm run bench:moderation -- model/a,model/b   # any OpenRouter ids
+ *   npm run bench:moderation -- typesafe/jev-1.14 # decision models (Decisions API)
+ *   npm run bench:moderation -- typesafe/jev-1.14+google/gemini-2.5-flash-lite
+ *                                                 # the real pipeline: rules → Jev → LLM 2nd opinion
+ *
+ * Decision models (Jev) run through JevModerator + routeJev with the default thresholds:
+ * "ambiguous" counts as review, exactly what the server does when there is no second opinion.
  *
  * Needs OPENROUTER_API_KEY in .env. Each model costs a fraction of a US cent.
  * Results and method: docs/moderation-benchmark.md
  */
+
+import { type ChatMessage, defaultSettings } from '@stream95/shared';
 import { loadEnv } from '../src/env.js';
 import { silentLogger } from '../src/log.js';
+import { JevModerator, routeJev } from '../src/moderation/jev.js';
 import { LlmModerator } from '../src/moderation/llm.js';
+import { ModerationPipeline } from '../src/moderation/pipeline.js';
 import { OpenRouter } from '../src/openrouter.js';
 
 type Expected = 'allow' | 'block';
@@ -47,13 +57,68 @@ const client = new OpenRouter({
 });
 
 console.log(`Moderação PT-BR · ${CASES.length} mensagens · ${new Date().toISOString().slice(0, 10)}\n`);
+/** Decision models answer the Decisions API instead of chat completions. */
+const isDecisionModel = (id: string) => id.includes('/jev-');
+const thresholds = defaultSettings().moderation;
+const STATUS_TO_DECISION = { shown: 'allow', held: 'review', rejected: 'block', expired: 'review' } as const;
+
+let seq = 0;
+const chatMsg = (text: string): ChatMessage => ({
+  id: `bench-${++seq}`,
+  channel: 'bench',
+  userId: `u-${seq}`,
+  login: `viewer${seq}`,
+  displayName: `viewer${seq}`,
+  text,
+  emotes: [],
+  badges: [],
+  isBroadcaster: false,
+  isMod: false,
+  isVip: false,
+  isSub: false,
+  isFirst: false,
+  isHighlighted: false,
+  timestamp: Date.now(),
+  source: 'twitch',
+});
+
 for (const model of models) {
-  const moderator = new LlmModerator(client, () => [model], silentLogger);
+  const llm = new LlmModerator(client, () => [model], silentLogger);
+  const jev = new JevModerator(client, () => model, silentLogger);
+  const judge = async (text: string) => {
+    if (model.includes('+')) {
+      // full pipeline exactly as the server runs it, with default settings
+      const [jevModel = '', llmModel = ''] = model.split('+');
+      const pipeline = new ModerationPipeline(
+        () => thresholds,
+        new LlmModerator(client, () => [llmModel], silentLogger),
+        silentLogger,
+        { jev: new JevModerator(client, () => jevModel, silentLogger) },
+      );
+      const m = await pipeline.process(chatMsg(text));
+      const v = m.verdict;
+      return {
+        got: STATUS_TO_DECISION[m.status],
+        ms: v.latencyMs ?? 0,
+        cost: v.costUsd ?? 0,
+        why: `${v.by}: ${v.reason}`,
+      };
+    }
+    if (!isDecisionModel(model)) {
+      const v = await llm.classify(text, 20_000);
+      return { got: v.decision as string, ms: v.latencyMs ?? 0, cost: v.costUsd ?? 0, why: v.reason };
+    }
+    const a = await jev.analyze(text, 20_000);
+    const route = routeJev(a, thresholds, false);
+    const got = route === 'ambiguous' ? 'review' : route;
+    const p = a.probabilities;
+    const why = `mostrar ${p.allow.toFixed(2)} · revisar ${p.review.toFixed(2)} · barrar ${p.block.toFixed(2)}`;
+    return { got, ms: a.latencyMs, cost: a.costUsd, why };
+  };
   const rows = await Promise.all(
     CASES.map(async (c) => {
       try {
-        const v = await moderator.classify(c.text, 20_000);
-        return { ...c, got: v.decision as string, ms: v.latencyMs ?? 0, cost: v.costUsd ?? 0, why: v.reason };
+        return { ...c, ...(await judge(c.text)) };
       } catch (err) {
         return { ...c, got: 'erro', ms: 0, cost: 0, why: (err as Error).message };
       }

@@ -63,7 +63,7 @@ Resposta de `/api/assistant/ask`:
 | `GET /api/settings`   | —              | Configurações atuais                                                               |
 | `PATCH /api/settings` | objeto parcial | Atualiza configurações (merge profundo, validado)                                  |
 | `GET /api/voices`     | —              | Vozes de TTS disponíveis                                                           |
-| `GET /api/models`     | —              | Modelos configurados para moderação, assistente e TTS                              |
+| `GET /api/models`     | —              | Modelos configurados para moderação (Jev e LLM), assistente e TTS                  |
 | `GET /api/commands`   | —              | Comandos de chat ativos                                                            |
 
 ### Chat e moderação
@@ -126,23 +126,23 @@ Resposta de `/api/assistant/ask`:
 
 `ws://localhost:1995/ws?role=<papel>`
 
-| Papel              | Quem usa         | Recebe                                                             |
-| ------------------ | ---------------- | ------------------------------------------------------------------ |
-| `overlay` (padrão) | Cenas e overlays | Tudo, menos a fila de moderação e as mensagens ainda não aprovadas |
-| `dock`             | Painel           | Tudo, inclusive `mod:queue`, `mod:log` e `chat:incoming`           |
-| `audio`            | Fonte de áudio   | Só o necessário para tocar TTS e jingles                           |
+| Papel              | Quem usa         | Recebe                                                                                   |
+| ------------------ | ---------------- | ---------------------------------------------------------------------------------------- |
+| `overlay` (padrão) | Cenas e overlays | Tudo, menos a fila de moderação e as mensagens ainda não aprovadas                       |
+| `dock`             | Painel           | Tudo, inclusive `mod:queue`, `mod:log`, `mod:signals`, `mod:attention` e `chat:incoming` |
+| `audio`            | Fonte de áudio   | Só o necessário para tocar TTS e jingles                                                 |
 
 Ao conectar chega um `hello` com o retrato completo do estado. Depois, eventos no formato
 `{ "type": "...", ... }`:
 
-| Grupo     | Eventos                                                                     |
-| --------- | --------------------------------------------------------------------------- |
-| Chat      | `chat:show`, `chat:remove`, `chat:clear`, `chat:incoming` (painel)          |
-| Moderação | `mod:queue`, `mod:log` (painel)                                             |
-| Clippy    | `assistant:thinking`, `assistant:reply`, `assistant:say`                    |
-| Voz       | `tts:play`, `tts:skip`                                                      |
-| Live      | `alert`, `bsod`, `toast`, `poll`, `pomodoro`, `counters`, `github`, `scene` |
-| Sistema   | `hello`, `settings`, `status`, `ping`                                       |
+| Grupo     | Eventos                                                                                                                                                             |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Chat      | `chat:show`, `chat:remove`, `chat:clear`, `chat:incoming` (painel)                                                                                                  |
+| Moderação | `mod:queue`, `mod:log`, `mod:signals` (sinais do Jev, que chegam depois da mensagem) e `mod:attention` (pergunta ou problema técnico para o streamer), só no painel |
+| Clippy    | `assistant:thinking`, `assistant:reply`, `assistant:say`                                                                                                            |
+| Voz       | `tts:play`, `tts:skip`                                                                                                                                              |
+| Live      | `alert`, `bsod`, `toast`, `poll`, `pomodoro`, `counters`, `github`, `scene`                                                                                         |
+| Sistema   | `hello`, `settings`, `status`, `ping`                                                                                                                               |
 
 O cliente pode enviar `{ "type": "ping", "t": <timestamp> }` e, na fonte de áudio,
 `{ "type": "tts:done", "id": "<id>" }` ao terminar uma fala. Os tipos completos estão em
