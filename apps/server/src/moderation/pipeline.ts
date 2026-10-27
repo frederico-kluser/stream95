@@ -1,20 +1,28 @@
 import type { ChatMessage, ModeratedMessage, ModerationSettings, ModerationVerdict } from '@stream95/shared';
 import type { Logger } from '../log.js';
+import { type JevModerator, jevReason, routeJev } from './jev.js';
 import type { LlmModerator } from './llm.js';
 import { RuleEngine } from './rules.js';
+
+/** What the pipeline needs from each AI step (the real classes and test fakes both fit). */
+export type LlmClassifier = Pick<LlmModerator, 'available' | 'classify'>;
+export type JevAnalyzer = Pick<JevModerator, 'available' | 'analyze'>;
 
 export type PipelineEvents = {
   shown: (m: ModeratedMessage) => void;
   queue: (queue: ModeratedMessage[]) => void;
   decided: (m: ModeratedMessage) => void;
   removed: (ids: string[]) => void;
+  /** Jev's signals (question / tech issue) for a message, as soon as they are known. */
+  signals: (m: ModeratedMessage) => void;
 };
 
 type Listeners = { [K in keyof PipelineEvents]: Set<PipelineEvents[K]> };
 
 /**
  * Every chat message goes through here BEFORE it can reach the overlay:
- * trust → local rules (instant) → LLM (≈0.7 s) → show / hold for review / reject.
+ * trust → local rules (instant) → Jev on every comment (≈0.4 s) → LLM second opinion only when
+ * Jev is unsure (or when Jev is off/unavailable) → show / hold for review / reject.
  */
 export class ModerationPipeline {
   private readonly rules = new RuleEngine();
@@ -26,16 +34,22 @@ export class ModerationPipeline {
     queue: new Set(),
     decided: new Set(),
     removed: new Set(),
+    signals: new Set(),
   };
   private readonly sessionTrusted = new Set<string>();
   private readonly sessionBlocked = new Set<string>();
+  private readonly jev: JevAnalyzer | null;
+  private readonly keepShown: number;
 
   constructor(
     private readonly settings: () => ModerationSettings,
-    private readonly llm: LlmModerator | null,
+    private readonly llm: LlmClassifier | null,
     private readonly logger: Logger,
-    private readonly keepShown = 50,
-  ) {}
+    opts: { jev?: JevAnalyzer | null; keepShown?: number } = {},
+  ) {
+    this.jev = opts.jev ?? null;
+    this.keepShown = opts.keepShown ?? 50;
+  }
 
   on<K extends keyof PipelineEvents>(event: K, listener: PipelineEvents[K]): () => void {
     (this.listeners[event] as Set<PipelineEvents[K]>).add(listener);
@@ -74,7 +88,25 @@ export class ModerationPipeline {
       this.held.set(item.id, item);
       this.emitQueue();
     }
+    if (item.verdict.signals) this.emit('signals', item);
+    else if (status !== 'rejected') this.enrich(item);
     return item;
+  }
+
+  /**
+   * "Every comment": messages that skipped the AI (greetings, trusted users, rule decisions) are
+   * still read by Jev in the background, only to flag questions and technical problems.
+   */
+  private enrich(item: ModeratedMessage): void {
+    const s = this.settings();
+    if (!s.analyzeAll || s.engine !== 'jev' || !s.llm || s.mode === 'off' || !this.jev?.available) return;
+    this.jev
+      .analyze(item.text, s.jevTimeoutMs)
+      .then((a) => {
+        item.verdict.signals = a.signals;
+        this.emit('signals', item);
+      })
+      .catch((err) => this.logger.debug({ err: (err as Error).message }, 'jev background analysis failed'));
   }
 
   private async judge(msg: ChatMessage): Promise<ModerationVerdict> {
@@ -102,8 +134,10 @@ export class ModerationPipeline {
     if (rule.kind === 'safe') return { decision: 'allow', category: 'ok', reason: rule.reason, by: 'rules' };
 
     const trustedTier = (msg.isVip && s.trustVips) || (msg.isSub && s.trustSubs);
-    const llmUsable = s.mode === 'auto' && s.llm && this.llm?.available;
-    if (trustedTier || !llmUsable) {
+    const aiOn = s.mode === 'auto' && s.llm;
+    const llmUsable = Boolean(aiOn && this.llm?.available);
+    const jevUsable = Boolean(aiOn && s.engine === 'jev' && this.jev?.available);
+    if (trustedTier || (!llmUsable && !jevUsable)) {
       if (rule.suspicious.length > 0 && !trustedTier) {
         return {
           decision: 'review',
@@ -120,6 +154,24 @@ export class ModerationPipeline {
       };
     }
 
+    if (jevUsable) {
+      try {
+        return await this.judgeWithJev(msg, rule.suspicious.length > 0, llmUsable);
+      } catch (err) {
+        this.logger.warn({ err: (err as Error).message }, 'jev moderation failed');
+        if (!llmUsable) {
+          const allow = s.onLlmError === 'allow' && rule.suspicious.length === 0;
+          return {
+            decision: allow ? 'allow' : 'review',
+            category: 'other',
+            reason: `Jev indisponível: ${(err as Error).message.slice(0, 80)}`,
+            by: 'fallback',
+          };
+        }
+        // otherwise the LLM below decides alone
+      }
+    }
+
     try {
       return await this.llm!.classify(msg.text, s.llmTimeoutMs);
     } catch (err) {
@@ -132,6 +184,56 @@ export class ModerationPipeline {
         by: 'fallback',
       };
     }
+  }
+
+  /**
+   * Jev decides alone only when sure (see routeJev). When it is not:
+   * - leaning harmful → the LLM may confirm a block, but never releases what Jev wanted a human to see;
+   * - leaning "show" (low confidence or a sensitive term) → the LLM decides;
+   * - no LLM → hold for review, unless Jev clearly leaned to "show".
+   */
+  private async judgeWithJev(msg: ChatMessage, suspicious: boolean, llmUsable: boolean): Promise<ModerationVerdict> {
+    const s = this.settings();
+    const a = await this.jev!.analyze(msg.text, s.jevTimeoutMs);
+    const base = {
+      by: 'jev' as const,
+      model: a.model,
+      latencyMs: a.latencyMs,
+      costUsd: a.costUsd,
+      probabilities: a.probabilities,
+      confidence: a.confidence,
+      signals: a.signals,
+    };
+    const route = routeJev(a, s, suspicious);
+    if (route === 'block') return { ...base, decision: 'block', category: a.category, reason: jevReason(a) };
+    if (route === 'allow') return { ...base, decision: 'allow', category: 'ok', reason: jevReason(a) };
+
+    const leansHarmful = a.action !== 'allow';
+    if (s.escalateToLlm && llmUsable) {
+      try {
+        const v = await this.llm!.classify(msg.text, s.llmTimeoutMs);
+        const decision = leansHarmful ? (v.decision === 'block' ? 'block' : 'review') : v.decision;
+        return {
+          ...base,
+          by: 'llm',
+          model: v.model ?? a.model,
+          latencyMs: a.latencyMs + (v.latencyMs ?? 0),
+          costUsd: a.costUsd + (v.costUsd ?? 0),
+          decision,
+          category: decision === 'allow' ? 'ok' : v.category !== 'ok' ? v.category : a.category,
+          reason: `${jevReason(a)} → IA: ${v.reason}`,
+        };
+      } catch (err) {
+        this.logger.warn({ err: (err as Error).message }, 'llm second opinion failed');
+      }
+    }
+    const allow = !leansHarmful && !suspicious && a.probabilities.block < 0.15;
+    return {
+      ...base,
+      decision: allow ? 'allow' : 'review',
+      category: allow ? 'ok' : a.category,
+      reason: `${jevReason(a)} (incerto)`,
+    };
   }
 
   /** Human approval from the dock (optionally trusting the user for the rest of the session). */

@@ -41,14 +41,22 @@ pelo gerador da coleção do OBS. Um teste garante que o Clippy nunca cubra câm
 
 1. **Regras locais** (instantâneas): termos bloqueados (inclusive ofuscados), links fora da lista,
    golpes, flood, caixa alta e mensagens repetidas.
-2. **IA via [OpenRouter](https://openrouter.ai)**: um modelo pequeno classifica o que as regras não
-   decidiram. O padrão (`google/gemini-2.5-flash-lite` com fallback `mistralai/ministral-8b-2512`) foi
-   escolhido por [benchmark em PT-BR](docs/moderation-benchmark.md): 8/8 acertos, ~0,7 s.
-3. **Fila de aprovação** no painel: aprovar, aprovar e confiar no usuário, rejeitar ou banir na sessão.
+2. **[Jev](https://openrouter.ai/typesafe/jev-1.14)** (TypeSafe), um modelo de decisão via
+   OpenRouter, lê **todo comentário** em ~0,4 s e responde mostrar, revisar ou barrar, com a
+   probabilidade de cada opção. Ele também marca **perguntas** e **avisos de problema técnico**
+   ("sem áudio", "tela preta"), que aparecem no painel em "Atenção do Jev".
+3. Quando o Jev fica em dúvida, um LLM (`google/gemini-2.5-flash-lite`, com fallback
+   `mistralai/ministral-8b-2512`) dá a **segunda opinião**. Ele pode confirmar um bloqueio, mas nunca
+   libera o que o Jev quis que um humano visse.
+4. **Fila de aprovação** no painel: aprovar, aprovar e confiar no usuário, rejeitar ou banir na sessão.
+
+No [benchmark em PT-BR](docs/moderation-benchmark.md), o pipeline completo acertou 8 de 8 com
+mediana de 0,40 s (o LLM sozinho: 8 de 8 em ~0,7 s). Se o Jev cair, o LLM assume sozinho.
 
 Modos: automático (regras + IA), manual (tudo passa pela fila) ou só regras locais. Mods e usuários
 marcados como confiáveis passam direto; VIPs (e, se você quiser, inscritos) passam só pelas regras
-locais, sem IA. A política da IA trata o texto do chat como dado, nunca como instrução.
+locais, sem IA. Mesmo assim, o Jev lê essas mensagens em segundo plano para achar perguntas e
+avisos. A IA trata o texto do chat como dado, nunca como instrução.
 
 ### Clippy com IA e API local
 
@@ -141,14 +149,13 @@ oficial (EventSub) e o Clippy respondendo no chat, crie um app **Public** na Twi
 
 O painel mostra o gasto real de cada chamada (`usage.cost`). Referência medida em outubro de 2026:
 
-| Uso                                     | Modelo padrão                  | Custo aproximado |
-| --------------------------------------- | ------------------------------ | ---------------- |
-| Moderar 1.000 mensagens que chegam à IA | `google/gemini-2.5-flash-lite` | US$ 0,03         |
-| 100 respostas do Clippy                 | `openai/gpt-4.1-mini`          | US$ 0,02         |
-| Ler 100 comentários de 180 caracteres   | `elevenlabs/eleven-flash-v2.5` | US$ 0,36         |
+| Uso                                                      | Modelo padrão                                        | Custo aproximado |
+| -------------------------------------------------------- | ---------------------------------------------------- | ---------------- |
+| Moderar 1.000 mensagens (Jev em todas, LLM nas ambíguas) | `typesafe/jev-1.14` + `google/gemini-2.5-flash-lite` | US$ 0,04         |
+| 100 respostas do Clippy                                  | `openai/gpt-4.1-mini`                                | US$ 0,02         |
+| Ler 100 comentários de 180 caracteres                    | `elevenlabs/eleven-flash-v2.5`                       | US$ 0,36         |
 
-Mensagens triviais ("oi", "kkkk") e as decididas pelas regras locais não chegam à IA, e veredictos
-repetidos vêm do cache.
+O Jev cobra só os tokens de entrada (US$ 0,042 por milhão), e veredictos repetidos vêm do cache.
 
 ## Segurança
 
@@ -167,7 +174,7 @@ flowchart LR
   twitch[Twitch<br/>IRC anônimo / EventSub] --> server
   github[GitHub API] --> server
   subgraph server [Servidor local · Fastify · 127.0.0.1:1995]
-    rules[Regras locais] --> llm[IA OpenRouter] --> queue[Fila de aprovação]
+    rules[Regras locais] --> jev[Jev · todo comentário] --> llm[LLM · 2ª opinião] --> queue[Fila de aprovação]
     clippy[Clippy · LLM] --- tts[TTS ElevenLabs]
     hub[Hub WebSocket]
   end

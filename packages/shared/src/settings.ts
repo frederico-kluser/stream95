@@ -17,9 +17,25 @@ export const SocialSchema = z.object({
 });
 
 export const ModerationSettingsSchema = z.object({
-  /** auto = local rules + LLM decide; manual = everything waits for you; off = only hard local rules. */
+  /** auto = local rules + AI decide; manual = everything waits for you; off = only hard local rules. */
   mode: z.enum(['auto', 'manual', 'off']).default('auto'),
+  /** Use AI at all (Jev and/or the LLM). */
   llm: z.boolean().default(true),
+  /**
+   * jev = TypeSafe's Jev decision model reads every comment (~0.4 s) and the LLM only settles the
+   * ambiguous ones; llm = the LLM alone. Falls back to the LLM when Jev is unavailable.
+   */
+  engine: z.enum(['jev', 'llm']).default('jev'),
+  /** Also run Jev, in the background, on messages that skip the AI (greetings, trusted users) to flag questions and tech issues. */
+  analyzeAll: z.boolean().default(true),
+  /** Jev decides alone only when this sure: P(barrar) to block and P(mostrar) to show. In between it is ambiguous. */
+  jevBlockAt: z.number().min(0.5).max(1).default(0.6),
+  jevAllowAt: z.number().min(0.5).max(1).default(0.7),
+  /** Ambiguous Jev answers get a second opinion from the LLM (otherwise they wait in the queue). */
+  escalateToLlm: z.boolean().default(true),
+  jevTimeoutMs: z.number().int().min(300).max(10000).default(2500),
+  /** Question / tech-issue probability that raises an attention alert in the dock. */
+  attentionAt: z.number().min(0.5).max(1).default(0.8),
   trustBroadcaster: z.boolean().default(true),
   trustMods: z.boolean().default(true),
   trustVips: z.boolean().default(true),

@@ -47,15 +47,39 @@ export type ModerationCategory =
   | 'length'
   | 'other';
 
+/** Probabilities (0..1) from the Jev decision model that help the streamer in real time. */
+export type ModerationSignals = {
+  /** The message is a question waiting for an answer from the streamer or the chat. */
+  question: number;
+  /** The viewer reports a technical problem with the stream (audio, video, delay, chat). */
+  techIssue: number;
+};
+
 export type ModerationVerdict = {
   decision: ModerationDecision;
   category: ModerationCategory;
   reason: string;
-  /** Who decided: local rules, the LLM, a human in the dock, the fallback policy, or trust (mods/broadcaster). */
-  by: 'rules' | 'llm' | 'human' | 'fallback' | 'trusted' | 'disabled';
+  /** Who decided: local rules, Jev, the LLM, a human in the dock, the fallback policy, or trust (mods/broadcaster). */
+  by: 'rules' | 'jev' | 'llm' | 'human' | 'fallback' | 'trusted' | 'disabled';
   model?: string;
   latencyMs?: number;
   costUsd?: number;
+  /** Jev's probability for each action, when Jev read the message. */
+  probabilities?: { allow: number; review: number; block: number };
+  /** How concentrated Jev's answer is (not a measure of correctness). */
+  confidence?: number;
+  signals?: ModerationSignals;
+};
+
+/** Something the streamer should look at now: a question to answer or a reported technical problem. */
+export type AttentionItem = {
+  messageId: string;
+  kind: keyof ModerationSignals;
+  score: number;
+  login: string;
+  displayName: string;
+  text: string;
+  at: number;
 };
 
 export type MessageStatus = 'shown' | 'held' | 'rejected' | 'expired';

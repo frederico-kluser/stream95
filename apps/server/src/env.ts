@@ -37,6 +37,8 @@ export const EnvSchema = z.object({
   OPENROUTER_API_KEY: optionalString,
   MODERATION_MODEL: z.preprocess(emptyToUndefined, z.string().default('google/gemini-2.5-flash-lite')),
   MODERATION_FALLBACK_MODEL: z.preprocess(emptyToUndefined, z.string().default('mistralai/ministral-8b-2512')),
+  /** Decision model for real-time moderation (pin a versioned id, never the ~latest alias). */
+  JEV_MODEL: z.preprocess(emptyToUndefined, z.string().default('typesafe/jev-1.14')),
   ASSISTANT_MODEL: z.preprocess(emptyToUndefined, z.string().default('openai/gpt-4.1-mini')),
   ASSISTANT_FALLBACK_MODEL: z.preprocess(emptyToUndefined, z.string().default('google/gemini-2.5-flash-lite')),
   TTS_MODEL: z.preprocess(emptyToUndefined, z.string().default('elevenlabs/eleven-flash-v2.5')),
