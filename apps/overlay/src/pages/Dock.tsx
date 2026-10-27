@@ -50,6 +50,7 @@ function Row({ children }: { children: ReactNode }) {
 
 const VERDICT_BY: Record<ModeratedMessage['verdict']['by'], string> = {
   rules: 'regras',
+  jev: 'Jev',
   llm: 'IA',
   human: 'streamer',
   fallback: 'sem IA (fallback)',
@@ -129,6 +130,41 @@ function QueueItem({ m, act }: { m: ModeratedMessage; act: (path: string, body?:
   );
 }
 
+const pct = (n: number) => `${Math.round(n * 100)}%`;
+
+/** Badges for what Jev noticed in a message (question to answer, technical problem). */
+function SignalTags({ m, at }: { m: ModeratedMessage; at: number }) {
+  const s = m.verdict.signals;
+  if (!s) return null;
+  return (
+    <>
+      {s.techIssue >= at && <span className="s95-tag s95-tag-warn">técnico {pct(s.techIssue)}</span>}
+      {s.question >= at && <span className="s95-tag s95-tag-info">pergunta {pct(s.question)}</span>}
+    </>
+  );
+}
+
+/** What the streamer should look at now, newest first: reported problems and open questions. */
+function AttentionPanel() {
+  const { attention } = useStream();
+  const [clearedAt, setClearedAt] = useState(0);
+  const items = attention.filter((a) => a.at > clearedAt).reverse();
+  return (
+    <Fieldset legend={`Atenção do Jev (${items.length})`}>
+      {items.length === 0 && (
+        <div className="s95-muted">Perguntas e avisos de problema técnico do chat aparecem aqui.</div>
+      )}
+      {items.slice(0, 12).map((a) => (
+        <div key={`${a.messageId}-${a.kind}`} className={`s95-attention s95-attention-${a.kind}`}>
+          <span className="s95-tag">{a.kind === 'techIssue' ? 'técnico' : 'pergunta'}</span>
+          <b>{a.displayName}</b>: {a.text} <span className="s95-muted">({pct(a.score)})</span>
+        </div>
+      ))}
+      {items.length > 0 && <Button onClick={() => setClearedAt(Date.now())}>Limpar</Button>}
+    </Fieldset>
+  );
+}
+
 function ModerationTab() {
   const { settings, queue, log } = useStream();
   const { error, run, patch } = useDockActions();
@@ -167,6 +203,20 @@ function ModerationTab() {
             Segurar 1ª mensagem
           </Checkbox>
         </Row>
+        <Row>
+          <Checkbox
+            checked={mod.engine === 'jev'}
+            onChange={() => void patch({ moderation: { engine: mod.engine === 'jev' ? 'llm' : 'jev' } })}
+          >
+            Jev analisa todo comentário
+          </Checkbox>
+          <Checkbox
+            checked={mod.escalateToLlm}
+            onChange={() => void patch({ moderation: { escalateToLlm: !mod.escalateToLlm } })}
+          >
+            2ª opinião da IA nos casos ambíguos
+          </Checkbox>
+        </Row>
       </Fieldset>
       <Fieldset legend={`Fila de aprovação (${queue.length})`}>
         {queue.length === 0 && <div className="s95-muted">Nada esperando. Chat tranquilo.</div>}
@@ -174,6 +224,7 @@ function ModerationTab() {
           <QueueItem key={m.id} m={m} act={act} />
         ))}
       </Fieldset>
+      <AttentionPanel />
       <Fieldset legend="Últimas decisões">
         <div className="s95-log">
           {[...log]
@@ -184,6 +235,7 @@ function ModerationTab() {
                 <span className="s95-log-status">{DECISION_LABEL[m.status]}</span>
                 <b>{m.displayName}</b>: {m.text}
                 <span className="s95-muted"> — {m.verdict.reason}</span>
+                <SignalTags m={m} at={mod.attentionAt} />
                 {m.status === 'shown' && (
                   <button type="button" className="s95-linkbtn" onClick={() => act(`/api/chat/${m.id}`)}>
                     apagar
