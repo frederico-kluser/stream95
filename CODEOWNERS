@@ -1,0 +1,7 @@
+# CODEOWNERS — stream95
+#
+# Responsável padrão por todo o repositório: é marcado para revisar todo PR.
+# Quando houver mais mantenedores, liste-os aqui (o último padrão que casar vence)
+# e suba `required_approving_review_count` em .github/rulesets/regras-main.json.
+
+*       @frederico-kluser
