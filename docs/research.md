@@ -85,6 +85,35 @@ A pesquisa não confirmou nada sobre alguns temas. Eles foram resolvidos com tes
 Por isso, suporte a PT-BR e resistência a ofuscação foram testados localmente
 (veja [`apps/server/test/rules.test.ts`](../apps/server/test/rules.test.ts)).
 
+## Jev (TypeSafe), pesquisado depois
+
+A moderação de todo comentário usa o Jev, adicionado depois da pesquisa inicial. O que foi conferido
+nas fontes oficiais e testado ao vivo:
+
+- O Jev é um modelo de **decisão** ("System One"): não gera texto. Recebe um `state` e perguntas
+  tipadas e devolve, para cada pergunta, a opção escolhida com a probabilidade de cada opção
+  (`choice`), a probabilidade de "sim" (`noul`) ou um nível numa escala (`score`).
+  ([Jev na OpenRouter](https://openrouter.ai/docs/guides/community/jev),
+  [tutorial](https://openrouter.ai/docs/guides/community/jev-tutorial))
+- Endpoint: `POST https://openrouter.ai/api/alpha/decisions`, com a mesma chave da OpenRouter. Cobra só
+  os tokens de entrada (US$ 0,042 por milhão); a saída é grátis.
+  ([referência da API de decisões](https://github.com/OpenRouterTeam/skills/blob/main/skills/openrouter-decisions/references/decisions-api.md))
+- Fixe uma versão (`typesafe/jev-1.14`), nunca o alias `~typesafe/jev-latest`: os limiares valem para
+  um build, e a resposta informa o build exato.
+  ([escolha de modelos de decisão](https://github.com/OpenRouterTeam/skills/blob/main/skills/openrouter-decisions/references/models.md))
+- **Limites**: o conteúdo é lido como dado, mas texto que argumenta pela própria classificação pode
+  mover a resposta; uma pergunta por julgamento; critérios explícitos.
+  ([limites dos modelos de decisão](https://github.com/OpenRouterTeam/skills/blob/main/skills/openrouter-decisions/references/decision-model-limits.md))
+  Por isso as regras locais rodam antes e os casos ambíguos vão para o LLM ou para um humano.
+- O **Jev Router** (`typesafe/jev-router`) é outra coisa: usa o Jev para escolher, a cada pedido de
+  chat, qual modelo gerativo responde. Não serve para moderação (precisamos da decisão tipada), mas
+  pode ser avaliado no futuro para o Clippy.
+  ([anúncio](https://x.com/OpenRouter/status/2103610898690855161))
+
+No teste ao vivo com 20 mensagens em PT-BR, o Jev 1.14 não deixou passar nada que deveria ser
+barrado, resistiu às duas tentativas de injeção e respondeu em 0,36 s na mediana. Detalhes em
+[moderation-benchmark.md](moderation-benchmark.md).
+
 ## Outras referências consultadas
 
 - [Social Stream Ninja](https://github.com/steveseguin/social_stream), overlays de chat multiplataforma.
