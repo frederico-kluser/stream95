@@ -1,10 +1,12 @@
 import type { PublicSettings } from './settings.js';
 import type {
   AssistantReply,
+  AttentionItem,
   ChatMessage,
   Counter,
   GithubEvent,
   ModeratedMessage,
+  ModerationSignals,
   PollState,
   PomodoroState,
   ServiceStatus,
@@ -21,6 +23,8 @@ export type Snapshot = {
   chat: ModeratedMessage[];
   queue: ModeratedMessage[];
   log: ModeratedMessage[];
+  /** Recent questions and technical problems flagged by Jev (dock only). */
+  attention: AttentionItem[];
   poll: PollState | null;
   pomodoro: PomodoroState;
   counters: Counter[];
@@ -41,6 +45,8 @@ export type ServerEvent =
   | { type: 'chat:incoming'; message: ChatMessage }
   | { type: 'mod:queue'; queue: ModeratedMessage[] }
   | { type: 'mod:log'; item: ModeratedMessage }
+  | { type: 'mod:signals'; id: string; signals: ModerationSignals }
+  | { type: 'mod:attention'; item: AttentionItem }
   | { type: 'alert'; alert: StreamAlert }
   | { type: 'tts:play'; item: TtsItem }
   | { type: 'tts:skip' }
@@ -58,7 +64,13 @@ export type ServerEvent =
 export type ServerEventType = ServerEvent['type'];
 
 /** Events that only the control dock receives. */
-export const DOCK_ONLY_EVENTS: ReadonlySet<ServerEventType> = new Set(['mod:queue', 'mod:log', 'chat:incoming']);
+export const DOCK_ONLY_EVENTS: ReadonlySet<ServerEventType> = new Set([
+  'mod:queue',
+  'mod:log',
+  'mod:signals',
+  'mod:attention',
+  'chat:incoming',
+]);
 
 /** Events the audio player cares about (it ignores everything else). */
 export const AUDIO_EVENTS: ReadonlySet<ServerEventType> = new Set([

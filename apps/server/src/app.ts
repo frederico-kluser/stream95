@@ -5,6 +5,7 @@ import fastifyStatic from '@fastify/static';
 import fastifyWebsocket from '@fastify/websocket';
 import {
   type AlertKind,
+  type AttentionItem,
   type ChatMessage,
   type ClientRole,
   type Counter,
@@ -31,6 +32,8 @@ import { PollService } from './features/poll.js';
 import { PomodoroService } from './features/pomodoro.js';
 import { Hub, type HubSocket } from './hub.js';
 import type { Logger } from './log.js';
+import { attentionFor } from './moderation/attention.js';
+import { JevModerator } from './moderation/jev.js';
 import { LlmModerator } from './moderation/llm.js';
 import { ModerationPipeline } from './moderation/pipeline.js';
 import { ObsClient } from './obs/obs.js';
@@ -123,7 +126,10 @@ export async function createApp(opts: AppOptions) {
     onSpend: (total) => setStatus({ spentUsd: Math.round(total * 1e6) / 1e6 }),
   });
   const llm = new LlmModerator(openrouter, () => [env.MODERATION_MODEL, env.MODERATION_FALLBACK_MODEL], log);
-  const pipeline = new ModerationPipeline(() => settings.moderation, llm, log);
+  const jev = new JevModerator(openrouter, () => env.JEV_MODEL, log);
+  const pipeline = new ModerationPipeline(() => settings.moderation, llm, log, { jev });
+  /** Questions and technical problems Jev flagged recently (dock / stream deck). */
+  const attention: AttentionItem[] = [];
   const tts = new TtsService(
     openrouter,
     () => env.TTS_MODEL,
@@ -334,6 +340,15 @@ export async function createApp(opts: AppOptions) {
     if (wants) speakChat(m, m.text);
   });
   pipeline.on('queue', (queue) => broadcast({ type: 'mod:queue', queue }));
+  pipeline.on('signals', (m) => {
+    if (!m.verdict.signals) return;
+    broadcast({ type: 'mod:signals', id: m.id, signals: m.verdict.signals });
+    for (const item of attentionFor(m, settings.moderation.attentionAt)) {
+      attention.push(item);
+      if (attention.length > 30) attention.splice(0, attention.length - 30);
+      broadcast({ type: 'mod:attention', item });
+    }
+  });
   pipeline.on('removed', (ids) => broadcast({ type: 'chat:remove', ids }));
   pipeline.on('decided', (m) => {
     broadcast({ type: 'mod:log', item: m });
@@ -426,6 +441,7 @@ export async function createApp(opts: AppOptions) {
   app.get('/api/voices', async () => ({ voices: TTS_VOICES }));
   app.get('/api/models', async () => ({
     moderation: [env.MODERATION_MODEL, env.MODERATION_FALLBACK_MODEL],
+    jev: env.JEV_MODEL,
     assistant: [env.ASSISTANT_MODEL, env.ASSISTANT_FALLBACK_MODEL],
     tts: env.TTS_MODEL,
   }));
@@ -804,6 +820,7 @@ export async function createApp(opts: AppOptions) {
       chat: pipeline.chat,
       queue: pipeline.queue,
       log: pipeline.history.slice(-60),
+      attention: [...attention],
       poll: poll.current,
       pomodoro: pomodoro.current,
       counters: counters.all,

@@ -1,6 +1,8 @@
 import type { Logger } from './log.js';
 
 const BASE_URL = 'https://openrouter.ai/api/v1';
+/** Decision models (Jev & co.) answer here, outside the /api/v1 prefix. */
+const DECISIONS_URL = 'https://openrouter.ai/api/alpha/decisions';
 
 export type ChatMessageParam = { role: 'system' | 'user' | 'assistant'; content: string };
 
@@ -18,6 +20,33 @@ export type ChatRequest = {
 };
 
 export type ChatResult = { content: string; model: string; costUsd: number; latencyMs: number };
+
+/** Typed question for a decision model: pick one option, a yes/no probability, or a level on a scale. */
+export type DecisionQuestion =
+  | { type: 'choice'; instructions: string; criteria: Record<string, string> }
+  | { type: 'noul'; instructions: string; criteria?: { true: string; false: string } }
+  | { type: 'score'; instructions: string; criteria: string[] };
+
+export type DecisionAnswer =
+  | { type: 'choice'; choice: string; probabilities?: Record<string, number>; confidence?: number }
+  | { type: 'noul'; noul: number }
+  | { type: 'score'; score: number; probabilities?: Record<string, number>; confidence?: number };
+
+export type DecisionRequest = {
+  model: string;
+  /** What the model judges. Objects with named fields work best; keep unrelated detail out. */
+  state: unknown;
+  questions: Record<string, DecisionQuestion>;
+  timeoutMs?: number;
+};
+
+export type DecisionResult = {
+  answers: Record<string, DecisionAnswer>;
+  /** Exact dated build that answered (log it: thresholds belong to a build). */
+  model: string;
+  costUsd: number;
+  latencyMs: number;
+};
 
 export type SpeechRequest = {
   model: string;
@@ -110,6 +139,35 @@ export class OpenRouter {
     return { content, model: String(data?.model ?? primary), costUsd, latencyMs: Date.now() - started };
   }
 
+  /** Decisions API: typed answers with probabilities, billed by input tokens only. */
+  async decide(req: DecisionRequest): Promise<DecisionResult> {
+    const started = Date.now();
+    const { bytes } = await this.post(
+      DECISIONS_URL,
+      { model: req.model, state: req.state, questions: req.questions },
+      req.timeoutMs ?? 5000,
+    );
+    // biome-ignore lint/suspicious/noExplicitAny: provider payloads are loosely typed
+    let data: any;
+    try {
+      data = JSON.parse(bytes.toString('utf8'));
+    } catch {
+      throw new OpenRouterError('resposta não-JSON da API de decisões', 502, true);
+    }
+    if (data?.error) throw new OpenRouterError(String(data.error.message ?? 'erro do provider'), data.error.code, true);
+    if (!data?.answers || typeof data.answers !== 'object') {
+      throw new OpenRouterError('API de decisões respondeu sem "answers"', 502, true);
+    }
+    const costUsd = Number(data?.usage?.cost ?? 0) || 0;
+    this.addSpend(costUsd);
+    return {
+      answers: data.answers as Record<string, DecisionAnswer>,
+      model: String(data.model ?? req.model),
+      costUsd,
+      latencyMs: Date.now() - started,
+    };
+  }
+
   async speech(req: SpeechRequest): Promise<SpeechResult> {
     const body: Record<string, unknown> = {
       model: req.model,
@@ -149,7 +207,8 @@ export class OpenRouter {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), remaining);
       try {
-        const res = await this.fetchImpl(`${BASE_URL}${path}`, {
+        const url = path.startsWith('https://') ? path : `${BASE_URL}${path}`;
+        const res = await this.fetchImpl(url, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${this.opts.apiKey}`,
