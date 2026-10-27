@@ -1,0 +1,13 @@
+# LF in the repository for every text file: the husky hooks and shell scripts must run on
+# Linux and macOS, and Windows editors/tools that write CRLF are normalized on commit.
+* text=auto eol=lf
+
+# binaries
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.mp3 binary
+*.woff binary
+*.woff2 binary
