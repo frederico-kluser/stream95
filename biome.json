@@ -1,8 +1,22 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.6.3/schema.json",
-  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
   "files": {
-    "includes": ["**", "!**/dist", "!**/coverage", "!**/data", "!**/node_modules", "!**/*.min.*", "!**/public/clippy"]
+    "includes": [
+      "**",
+      "!**/dist",
+      "!**/coverage",
+      "!**/data",
+      "!**/node_modules",
+      "!**/*.min.*",
+      "!**/public/clippy",
+      "!**/apps/deck/src/components/motion-ui",
+      "!**/apps/deck/src/components/ui"
+    ]
   },
   "formatter": {
     "enabled": true,
@@ -11,7 +25,11 @@
     "lineWidth": 120
   },
   "javascript": {
-    "formatter": { "quoteStyle": "single", "semicolons": "always", "trailingCommas": "all" }
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "always",
+      "trailingCommas": "all"
+    }
   },
   "linter": {
     "enabled": true,
@@ -23,10 +41,29 @@
         "noUnusedImports": "error",
         "noUnusedVariables": "warn"
       },
-      "suspicious": { "noExplicitAny": "warn", "noConsole": "off" },
-      "style": { "noNonNullAssertion": "off" },
-      "a11y": { "useMediaCaption": "off", "noSvgWithoutTitle": "off" }
+      "suspicious": {
+        "noExplicitAny": "warn",
+        "noConsole": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "off"
+      },
+      "a11y": {
+        "useMediaCaption": "off",
+        "noSvgWithoutTitle": "off"
+      }
     }
   },
-  "assist": { "actions": { "source": { "organizeImports": "on" } } }
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  }
 }

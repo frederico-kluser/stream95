@@ -33,8 +33,8 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "dev": "concurrently -k -n server,overlay -c cyan,magenta \"npm run dev -w @stream95/server\" \"npm run dev -w @stream95/overlay\"",
-    "build": "npm run build -w @stream95/overlay && npm run build -w @stream95/server",
+    "dev": "concurrently -k -n server,overlay,deck -c cyan,magenta,green \"npm run dev -w @stream95/server\" \"npm run dev -w @stream95/overlay\" \"npm run dev -w @stream95/deck\"",
+    "build": "npm run build -w @stream95/overlay && npm run build -w @stream95/deck && npm run build -w @stream95/server",
     "start": "node apps/server/dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -46,7 +46,8 @@
     "twitch:login": "npm run twitch:login -w @stream95/server",
     "obs:collection": "tsx obs/build-scene-collection.ts",
     "bench:moderation": "npm run bench:moderation -w @stream95/server --",
-    "prepare": "husky"
+    "prepare": "husky",
+    "sfx:pack": "tsx apps/server/scripts/sfx-starter-pack.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.3",
