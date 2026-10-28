@@ -22,21 +22,40 @@ export type ObsHandlers = {
   scenes: (current: string | null, all: string[]) => void;
 };
 
+export type ObsClientOptions = {
+  /** WebSocket constructor (tests inject a fake). */
+  WebSocketImpl?: typeof WebSocket;
+  /** Pause between reconnection attempts. */
+  retryMs?: number;
+  /** Give up on a connection that never completes the Hello/Identify handshake. */
+  handshakeMs?: number;
+};
+
 /** Tiny obs-websocket v5 client: list scenes, switch scene, follow scene changes. Reconnects quietly. */
 export class ObsClient {
   private ws: WebSocket | null = null;
   private readonly pending = new Map<string, Pending>();
   private retry: NodeJS.Timeout | null = null;
+  private handshake: NodeJS.Timeout | null = null;
   private enabled = false;
   private current: string | null = null;
   private all: string[] = [];
+
+  private readonly WebSocketImpl: typeof WebSocket;
+  private readonly retryMs: number;
+  private readonly handshakeMs: number;
 
   constructor(
     private readonly url: string,
     private readonly password: string | undefined,
     private readonly handlers: ObsHandlers,
     private readonly log: Logger,
-  ) {}
+    opts: ObsClientOptions = {},
+  ) {
+    this.WebSocketImpl = opts.WebSocketImpl ?? WebSocket;
+    this.retryMs = opts.retryMs ?? 10_000;
+    this.handshakeMs = opts.handshakeMs ?? 8_000;
+  }
 
   get scene(): string | null {
     return this.current;
@@ -96,28 +115,39 @@ export class ObsClient {
     this.handlers.state('connecting');
     let ws: WebSocket;
     try {
-      ws = new WebSocket(this.url, 'obswebsocket.json');
+      ws = new this.WebSocketImpl(this.url, 'obswebsocket.json');
     } catch (err) {
       this.log.debug({ err }, 'obs connect failed');
       this.scheduleRetry();
       return;
     }
     this.ws = ws;
+    // A server that accepts the socket but never says Hello (or a half-open TCP) must not hang us.
+    this.handshake = setTimeout(() => this.lost(ws), this.handshakeMs);
     ws.onmessage = (ev) => this.onFrame(ws, String(ev.data));
-    ws.onclose = () => {
-      for (const [id, p] of this.pending) {
-        clearTimeout(p.timer);
-        p.reject(new Error('OBS desconectado'));
-        this.pending.delete(id);
-      }
-      if (this.ws === ws) {
-        this.ws = null;
-        this.scheduleRetry();
-      }
-    };
-    ws.onerror = () => {
-      /* onclose handles the retry */
-    };
+    ws.onclose = () => this.lost(ws);
+    // Node's WebSocket on Windows fires `error` WITHOUT a following `close` when the port refuses
+    // (OBS closed): without this the client stayed "connecting" forever and never retried.
+    ws.onerror = () => this.lost(ws);
+  }
+
+  /** The socket is gone (closed, errored or timed out): fail pending requests and retry later. */
+  private lost(ws: WebSocket): void {
+    if (this.ws !== ws) return;
+    this.ws = null;
+    if (this.handshake) clearTimeout(this.handshake);
+    this.handshake = null;
+    for (const [id, p] of this.pending) {
+      clearTimeout(p.timer);
+      p.reject(new Error('OBS desconectado'));
+      this.pending.delete(id);
+    }
+    try {
+      ws.close();
+    } catch {
+      // already closed
+    }
+    this.scheduleRetry();
   }
 
   private onFrame(ws: WebSocket, raw: string): void {
@@ -148,6 +178,8 @@ export class ObsClient {
         }),
       );
     } else if (msg.op === OP.Identified) {
+      if (this.handshake) clearTimeout(this.handshake);
+      this.handshake = null;
       this.handlers.state('online');
       void this.refreshScenes().catch((err) => this.log.warn({ err: (err as Error).message }, 'obs scene list failed'));
     } else if (msg.op === OP.RequestResponse) {
@@ -180,6 +212,6 @@ export class ObsClient {
     this.retry = setTimeout(() => {
       this.retry = null;
       this.connect();
-    }, 10_000);
+    }, this.retryMs);
   }
 }
