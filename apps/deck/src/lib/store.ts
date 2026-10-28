@@ -32,7 +32,8 @@ export type DeckState = {
   attention: AttentionItem[];
   sfx: SfxLibrary;
   /** Tap-to-sound latency of the last plays, by sound id. */
-  sfxLatency: Record<string, number>;
+  /** Last tap-to-sound latency per sound id (a Map: ids come from the network, never object keys). */
+  sfxLatency: ReadonlyMap<string, number>;
   poll: PollState | null;
   pomodoro: PomodoroState;
   /**
@@ -55,7 +56,7 @@ export const initialState = (): DeckState => ({
   log: [],
   attention: [],
   sfx: { dir: '', sounds: [], buttons: [] },
-  sfxLatency: {},
+  sfxLatency: new Map(),
   poll: null,
   pomodoro: { mode: 'idle', running: false, remainingMs: 0, durationMs: 0, cycle: 0 },
   pomodoroAt: 0,
@@ -122,7 +123,7 @@ export function reduce(state: DeckState, e: ServerEvent, now: number = Date.now(
     case 'sfx:library':
       return { ...state, sfx: e.library };
     case 'sfx:played':
-      return { ...state, sfxLatency: { ...state.sfxLatency, [e.soundId]: e.latencyMs } };
+      return { ...state, sfxLatency: new Map(state.sfxLatency).set(e.soundId, e.latencyMs) };
     case 'poll':
       return { ...state, poll: e.poll };
     case 'pomodoro':

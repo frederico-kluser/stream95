@@ -23,7 +23,7 @@ export const Board = memo(function Board({
   buttons: readonly SfxButton[];
   soundsById: ReadonlyMap<string, SfxSound>;
   offline: boolean;
-  latency: Readonly<Record<string, number>>;
+  latency: ReadonlyMap<string, number>;
 }) {
   return (
     <ul aria-label="Mesa de som" className={GRID}>
@@ -33,7 +33,7 @@ export const Board = memo(function Board({
             button={button}
             sound={button.soundId ? soundsById.get(button.soundId) : undefined}
             offline={offline}
-            latencyMs={button.soundId ? latency[button.soundId] : undefined}
+            latencyMs={button.soundId ? latency.get(button.soundId) : undefined}
           />
         </li>
       ))}

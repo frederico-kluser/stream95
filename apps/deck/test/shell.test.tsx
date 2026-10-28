@@ -43,7 +43,7 @@ function deckState(patch: Partial<DeckState> = {}): DeckState {
     log: [],
     attention: [],
     sfx: { dir: '', sounds: [], buttons: [] },
-    sfxLatency: {},
+    sfxLatency: new Map(),
     poll: null,
     pomodoro: { mode: 'idle', running: false, remainingMs: 0, durationMs: 0, cycle: 0 },
     pomodoroAt: 0,

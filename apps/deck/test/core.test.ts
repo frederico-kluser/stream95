@@ -79,7 +79,7 @@ describe('deck reducer', () => {
   it('tracks library updates, play latency, attention and late Jev signals', () => {
     let s = reduce(initialState(), { type: 'sfx:library', library });
     s = reduce(s, { type: 'sfx:played', playId: 'p1', soundId: 's1', latencyMs: 14 });
-    expect(s.sfxLatency.s1).toBe(14);
+    expect(s.sfxLatency.get('s1')).toBe(14);
     const item: AttentionItem = {
       messageId: 'm1',
       kind: 'techIssue',

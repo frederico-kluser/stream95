@@ -113,7 +113,7 @@ beforeEach(() => {
     log: [],
     attention: [],
     sfx: library,
-    sfxLatency: {},
+    sfxLatency: new Map(),
     poll: null,
     pomodoro: { mode: 'idle', running: false, remainingMs: 0, durationMs: 0, cycle: 0 },
     pomodoroAt: 0,
