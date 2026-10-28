@@ -9,10 +9,12 @@ import { silentLogger } from '../src/log.js';
 
 const dataDir = mkdtempSync(path.join(tmpdir(), 'stream95-test-'));
 const env = loadEnv(
-  { DATA_DIR: dataDir, PORT: '0', OPENROUTER_API_KEY: '' } as NodeJS.ProcessEnv,
+  { DATA_DIR: dataDir, SOUNDS_DIR: path.join(dataDir, 'sons'), PORT: '0', OPENROUTER_API_KEY: '' } as NodeJS.ProcessEnv,
   fileURLToPath(new URL('../../..', import.meta.url)),
 );
 env.dataDir = dataDir;
+// Never serve the real deck build from these tests (it may or may not exist).
+env.deckDist = path.join(dataDir, 'no-deck');
 
 let server: Awaited<ReturnType<typeof createApp>>;
 const H = { host: 'localhost:1995', 'x-stream95': '1', 'content-type': 'application/json' };

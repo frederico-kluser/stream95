@@ -69,17 +69,22 @@ export class OpenRouterError extends Error {
   }
 }
 
-/** USD per character for ElevenLabs via OpenRouter (list price per 1M chars). Used only to estimate spend. */
+/**
+ * USD per character for ElevenLabs via OpenRouter (list price checked 2026-10-27 on /api/v1/models?output_modalities=speech).
+ * Used only to estimate spend; unknown models count at the Flash price.
+ */
 const TTS_PRICE_PER_CHAR: Record<string, number> = {
-  'elevenlabs/eleven-flash-v2.5': 20e-6,
-  'elevenlabs/eleven-turbo-v2.5': 20e-6,
-  'elevenlabs/eleven-flash-v2': 20e-6,
-  'elevenlabs/eleven-v4-turbo': 20e-6,
-  'elevenlabs/eleven-v3-conversational': 20e-6,
-  'elevenlabs/eleven-v4': 40e-6,
-  'elevenlabs/eleven-v3': 40e-6,
-  'elevenlabs/eleven-multilingual-v2': 40e-6,
+  'elevenlabs/eleven-flash-v2.5': 40e-6,
+  'elevenlabs/eleven-flash-v2': 40e-6,
+  'elevenlabs/eleven-turbo-v2.5': 40e-6,
+  'elevenlabs/eleven-turbo-v2': 40e-6,
+  'elevenlabs/eleven-v4-turbo': 40e-6,
+  'elevenlabs/eleven-v3-conversational': 40e-6,
+  'elevenlabs/eleven-v4': 80e-6,
+  'elevenlabs/eleven-v3': 80e-6,
+  'elevenlabs/eleven-multilingual-v2': 80e-6,
 };
+const TTS_DEFAULT_PRICE_PER_CHAR = 40e-6;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -186,7 +191,7 @@ export class OpenRouter {
         502,
       );
     }
-    const costUsd = (TTS_PRICE_PER_CHAR[req.model] ?? 20e-6) * req.input.length;
+    const costUsd = (TTS_PRICE_PER_CHAR[req.model] ?? TTS_DEFAULT_PRICE_PER_CHAR) * req.input.length;
     this.addSpend(costUsd);
     return { audio: bytes, generationId: headers.get('x-generation-id'), costUsd, latencyMs: Date.now() - started };
   }

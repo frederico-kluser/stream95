@@ -2,7 +2,6 @@ import type { SceneId } from '@stream95/shared';
 import { type ReactElement, useEffect } from 'react';
 import { useStream } from './lib/stream';
 import { applyTheme } from './lib/themes';
-import { Dock } from './pages/Dock';
 import { Home } from './pages/Home';
 import {
   AlertsOverlay,
@@ -25,9 +24,9 @@ const OVERLAYS: Record<string, () => ReactElement> = {
   audio: AudioOverlay,
 };
 
+/** Page for a path. The control deck is its own app (apps/deck), served by the server at /dock/. */
 export function route(pathname: string): () => ReactElement {
   const [, kind, name] = pathname.replace(/\/+$/, '').split('/');
-  if (kind === 'dock') return Dock;
   if (kind === 'overlay' && name && OVERLAYS[name]) return OVERLAYS[name];
   if (kind === 'scene' && name && name in SCENE_COMPONENTS) return SCENE_COMPONENTS[name as SceneId];
   return Home;

@@ -7,7 +7,6 @@ import {
   type AlertKind,
   type AttentionItem,
   type ChatMessage,
-  type ClientRole,
   type Counter,
   type ModeratedMessage,
   mergeSettings,
@@ -31,6 +30,7 @@ import { GithubFeed } from './features/github.js';
 import { PollService } from './features/poll.js';
 import { PomodoroService } from './features/pomodoro.js';
 import { Hub, type HubSocket } from './hub.js';
+import { type LanOverrides, setupLan } from './lan/lan.js';
 import type { Logger } from './log.js';
 import { attentionFor } from './moderation/attention.js';
 import { JevModerator } from './moderation/jev.js';
@@ -38,6 +38,7 @@ import { LlmModerator } from './moderation/llm.js';
 import { ModerationPipeline } from './moderation/pipeline.js';
 import { ObsClient } from './obs/obs.js';
 import { OpenRouter } from './openrouter.js';
+import { registerSfxRoutes, SoundLibrary, sfxPaths } from './sfx/index.js';
 import { appendJsonLine, JsonStore } from './store.js';
 import { textForSpeech, withSpeaker } from './tts/sanitize.js';
 import { TtsService } from './tts/service.js';
@@ -54,6 +55,8 @@ export type AppOptions = {
   fetchImpl?: typeof fetch;
   /** Connect to Twitch/GitHub/OBS on start (tests turn this off). */
   connectServices?: boolean;
+  /** LAN pairing overrides (tests inject network interfaces and a clock). */
+  lan?: LanOverrides;
 };
 
 /** Words spoken (and shown) when an alert fires. */
@@ -82,6 +85,24 @@ export function alertSpeech(a: StreamAlert): string {
 }
 
 const dayFile = (dir: string) => path.join(dir, 'moderation', `${new Date().toISOString().slice(0, 10)}.jsonl`);
+
+/**
+ * Page for an app that is not built yet. A phone can land here from the pairing QR code, so the
+ * steps happen on the PC and the dev link (Vite listens on localhost only) is marked as PC-only.
+ */
+function notBuiltPage(what: 'O painel' | 'O overlay', devUrl: string): string {
+  return [
+    '<!doctype html><html lang="pt-BR"><meta charset="utf-8">',
+    '<meta name="viewport" content="width=device-width, initial-scale=1">',
+    '<title>stream95</title>',
+    '<style>:root{color-scheme:light dark}body{font:16px/1.5 system-ui,sans-serif;max-width:36rem;',
+    'margin:0 auto;padding:24px 16px}h1{font-size:1.5rem;line-height:1.25}</style>',
+    `<h1>${what} ainda não foi compilado</h1>`,
+    '<p>No PC, rode <code>npm run build</code> e reinicie o stream95. Depois, recarregue esta página.</p>',
+    `<p>Em desenvolvimento (<code>npm run dev</code>), abra <a href="${devUrl}">${devUrl}</a> no mesmo PC.`,
+    ' Esse endereço não abre no celular nem em outro PC.</p>',
+  ].join('');
+}
 
 export async function createApp(opts: AppOptions) {
   const { env, log } = opts;
@@ -274,10 +295,20 @@ export async function createApp(opts: AppOptions) {
     projectUrl: PROJECT_URL,
   });
 
+  // Soundboard: the user's folder of sounds, converted to WAV 48 kHz and played by the OBS audio page.
+  const sfx = new SoundLibrary({
+    ...sfxPaths({ dataDir: env.dataDir, root: env.root, soundsDir: env.SOUNDS_DIR }),
+    log,
+    settings: () => settings.sfx,
+    watch: opts.connectServices !== false,
+  });
+  await sfx.start();
+
   hub = new Hub(hubSnapshot, () => settings, log);
   hub.onClientEvent((event) => {
     if (event.type === 'tts:done') tts.done(event.id);
   });
+  sfx.onChange((library) => broadcast({ type: 'sfx:library', library }));
 
   // -------------------------------------------------------------- chat flow
   async function onChatMessage(msg: ChatMessage): Promise<ModeratedMessage | null> {
@@ -378,43 +409,8 @@ export async function createApp(opts: AppOptions) {
   const app: FastifyInstance = Fastify({ logger: false, bodyLimit: 64 * 1024 });
   await app.register(fastifyWebsocket);
 
-  const localHosts = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
-  app.addHook('onRequest', async (req, reply) => {
-    // DNS-rebinding guard: only answer to local host names (unless HOST opts into the LAN).
-    const hostHeader = String(req.headers.host ?? '');
-    const hostname = hostHeader.startsWith('[')
-      ? hostHeader.slice(0, hostHeader.indexOf(']') + 1)
-      : hostHeader.split(':')[0];
-    if (env.HOST !== '0.0.0.0' && !localHosts.has(hostname ?? '') && hostname !== env.HOST) {
-      return reply.code(403).send({ error: 'Erro: host não permitido — Solução: acesse por http://localhost' });
-    }
-    // Cross-site WebSocket hijacking guard: browsers always send Origin on WS upgrades.
-    if (req.url.startsWith('/ws') && req.headers.origin) {
-      try {
-        if (new URL(req.headers.origin).host !== hostHeader) throw new Error('cross-origin');
-      } catch {
-        return reply.code(403).send({ error: 'Erro: origem cruzada bloqueada no WebSocket' });
-      }
-    }
-    // CSRF guard: state-changing calls need a custom header (forces a CORS preflight we never grant).
-    if (req.url.startsWith('/api/') && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
-      if (req.headers['x-stream95'] !== '1') {
-        return reply.code(403).send({
-          error: 'Erro: requisição sem cabeçalho x-stream95 — Solução: use o painel ou envie "x-stream95: 1"',
-        });
-      }
-      const origin = req.headers.origin;
-      if (origin) {
-        try {
-          if (new URL(origin).host !== hostHeader) throw new Error('cross-origin');
-        } catch {
-          return reply
-            .code(403)
-            .send({ error: 'Erro: origem cruzada bloqueada — Solução: use o painel em http://localhost' });
-        }
-      }
-    }
-  });
+  // Security gate (DNS rebinding, CSRF, WebSocket Origin, LAN device tokens) + /api/devices routes.
+  const lan = await setupLan(app, { env, log, ...opts.lan });
 
   const fail = (reply: FastifyReply, code: number, message: string) => reply.code(code).send({ error: message });
   const parse = <T>(schema: z.ZodType<T>, body: unknown, reply: FastifyReply): T | null => {
@@ -431,9 +427,7 @@ export async function createApp(opts: AppOptions) {
   };
 
   app.get('/ws', { websocket: true }, (socket, req) => {
-    const q = req.query as { role?: string };
-    const role: ClientRole = q.role === 'dock' || q.role === 'audio' ? q.role : 'overlay';
-    hub.add(socket as unknown as HubSocket, role);
+    hub.add(socket as unknown as HubSocket, lan.attachSocket(socket, req));
   });
 
   app.get('/api/health', async () => ({ ok: true, name: 'stream95', status, clients: hub.countByRole() }));
@@ -462,6 +456,8 @@ export async function createApp(opts: AppOptions) {
       }
       if (JSON.stringify(previous.github) !== JSON.stringify(settings.github) && opts.connectServices !== false)
         github.start();
+      // Turning volume normalization on or off converts every sound again (old files keep playing meanwhile).
+      if (previous.sfx.normalize !== settings.sfx.normalize) void sfx.settingsChanged();
       return settings;
     } catch (err) {
       return fail(reply, 400, `Erro: configuração inválida — Solução: ${(err as Error).message.slice(0, 300)}`);
@@ -795,25 +791,52 @@ export async function createApp(opts: AppOptions) {
     return { ok: true };
   });
 
-  // overlay (built SPA) — or a hint to run the Vite dev server
-  if (existsSync(path.join(env.overlayDist, 'index.html'))) {
+  // soundboard
+  const sfxRoutes = registerSfxRoutes(app, {
+    library: sfx,
+    settings: () => settings,
+    broadcast,
+    log,
+    audioClients: () => hub.countByRole().audio,
+  });
+  hub.onClientEvent((event) => {
+    if (event.type !== 'sfx:played') return;
+    const played = sfxRoutes.reportPlayed(event.playId);
+    if (played) broadcast({ type: 'sfx:played', playId: event.playId, ...played });
+  });
+
+  // Built SPAs: the control deck under /dock/ and the overlays everywhere else — or a hint to build them.
+  const deckBuilt = existsSync(path.join(env.deckDist, 'index.html'));
+  const overlayBuilt = existsSync(path.join(env.overlayDist, 'index.html'));
+  const deckMissing = notBuiltPage('O painel', 'http://localhost:5173/dock/');
+  const overlayMissing = notBuiltPage('O overlay', 'http://localhost:5173/');
+  // The OBS dock and old links use /dock without the slash; keep the query (?pair=CODE).
+  app.get('/dock', async (req, reply) => {
+    const query = req.url.indexOf('?');
+    return reply.redirect(`/dock/${query >= 0 ? req.url.slice(query) : ''}`, 301);
+  });
+  if (deckBuilt) {
     // wildcard (the default) resolves files per request, so a rebuild while the server runs
     // serves the new hashed assets instead of falling back to index.html.
-    await app.register(fastifyStatic, { root: env.overlayDist });
-    app.setNotFoundHandler((req, reply) => {
-      if (req.url.startsWith('/api/') || req.url.startsWith('/ws'))
-        return fail(reply, 404, 'Erro: rota inexistente — Solução: veja docs/api.md');
-      return reply.sendFile('index.html');
-    });
-  } else {
-    app.get('/', async (_req, reply) =>
-      reply
-        .type('text/html; charset=utf-8')
-        .send(
-          '<h1>stream95</h1><p>Overlay ainda não compilado. Em desenvolvimento use <a href="http://localhost:5173/dock">http://localhost:5173/dock</a> (npm run dev) ou rode <code>npm run build</code>.</p>',
-        ),
-    );
+    // Exactly one static instance adds reply.sendFile: the overlay one, or this one when the overlay
+    // is not built (the deck SPA fallback below needs it either way).
+    await app.register(fastifyStatic, { root: env.deckDist, prefix: '/dock/', decorateReply: !overlayBuilt });
   }
+  if (overlayBuilt) await app.register(fastifyStatic, { root: env.overlayDist });
+  else app.get('/', async (_req, reply) => reply.type('text/html; charset=utf-8').send(overlayMissing));
+  app.setNotFoundHandler((req, reply) => {
+    const url = req.url;
+    if (url.startsWith('/api/') || url.startsWith('/ws'))
+      return fail(reply, 404, 'Erro: rota inexistente — Solução: veja docs/api.md');
+    if (url.startsWith('/dock/')) {
+      if (!deckBuilt) return reply.code(404).type('text/html; charset=utf-8').send(deckMissing);
+      // SPA fallback with no-cache, so a rebuilt deck is picked up on the next open.
+      return reply.header('Cache-Control', 'no-cache').sendFile('index.html', env.deckDist, { cacheControl: false });
+    }
+    if (!overlayBuilt) return reply.code(404).type('text/html; charset=utf-8').send(overlayMissing);
+    // explicit root: it must not depend on which static instance added sendFile
+    return reply.sendFile('index.html', env.overlayDist);
+  });
 
   function hubSnapshot(): Snapshot {
     return {
@@ -821,6 +844,7 @@ export async function createApp(opts: AppOptions) {
       queue: pipeline.queue,
       log: pipeline.history.slice(-60),
       attention: [...attention],
+      sfx: sfx.snapshot(),
       poll: poll.current,
       pomodoro: pomodoro.current,
       counters: counters.all,
@@ -868,7 +892,7 @@ export async function createApp(opts: AppOptions) {
     github.stop();
     obs.stop();
     pomodoro.stop();
-    await Promise.allSettled([settingsStore.flush(), countersStore.flush()]);
+    await Promise.allSettled([settingsStore.flush(), countersStore.flush(), sfx.stop()]);
     await app.close();
   }
 
@@ -876,8 +900,11 @@ export async function createApp(opts: AppOptions) {
     app,
     start,
     stop,
-    services: { pipeline, tts, assistant, poll, pomodoro, counters, hub, openrouter, tokens, obs, chat, github },
+    services: { pipeline, tts, assistant, poll, pomodoro, counters, hub, openrouter, tokens, obs, chat, github, sfx },
     simulateChat: onChatMessage,
     getSettings: () => settings,
+    lan,
+    /** apps/deck/dist had an index.html at startup (a later build needs a restart). */
+    deckBuilt,
   };
 }

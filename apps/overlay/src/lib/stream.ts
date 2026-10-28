@@ -13,6 +13,7 @@ import {
   type ServerEvent,
   type ServiceStatus,
   type Settings,
+  type SfxLibrary,
 } from '@stream95/shared';
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 
@@ -25,6 +26,8 @@ export type StreamState = {
   /** Questions and technical problems flagged by Jev (dock only). */
   attention: AttentionItem[];
   incoming: ChatMessage[];
+  /** Sound library and soundboard buttons (the audio page preloads every ready sound). */
+  sfx: SfxLibrary | null;
   poll: PollState | null;
   pomodoro: PomodoroState;
   counters: Counter[];
@@ -42,6 +45,7 @@ export const initialState = (): StreamState => ({
   log: [],
   attention: [],
   incoming: [],
+  sfx: null,
   poll: null,
   pomodoro: { mode: 'idle', running: false, remainingMs: 0, durationMs: 0, cycle: 0 },
   counters: [],
@@ -70,6 +74,7 @@ export function reduce(state: StreamState, e: ServerEvent): StreamState {
         queue: e.snapshot.queue,
         log: e.snapshot.log,
         attention: e.snapshot.attention ?? [],
+        sfx: e.snapshot.sfx ?? null,
         poll: e.snapshot.poll,
         pomodoro: e.snapshot.pomodoro,
         counters: e.snapshot.counters,
@@ -100,6 +105,8 @@ export function reduce(state: StreamState, e: ServerEvent): StreamState {
       return { ...state, log: withSignals(state.log, e.id, e.signals), chat: withSignals(state.chat, e.id, e.signals) };
     case 'mod:attention':
       return { ...state, attention: [...state.attention, e.item].slice(-30) };
+    case 'sfx:library':
+      return { ...state, sfx: e.library };
     case 'poll':
       return { ...state, poll: e.poll };
     case 'pomodoro':

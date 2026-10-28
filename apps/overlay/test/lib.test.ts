@@ -45,6 +45,16 @@ describe('stream reducer', () => {
     const s = initialState();
     expect(reduce(s, { type: 'bsod', title: 't', message: 'm' })).toBe(s);
   });
+
+  it('keeps the sound library and ignores play/stop events', () => {
+    let s = initialState();
+    expect(s.sfx).toBeNull();
+    const library = { dir: 'C:/sons', sounds: [], buttons: [] };
+    s = reduce(s, { type: 'sfx:library', library });
+    expect(s.sfx).toBe(library);
+    expect(reduce(s, { type: 'sfx:play', playId: 'p', soundId: 'a', url: '/x.wav', volume: 1 })).toBe(s);
+    expect(reduce(s, { type: 'sfx:stop' })).toBe(s);
+  });
 });
 
 describe('format helpers', () => {

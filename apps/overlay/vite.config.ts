@@ -2,6 +2,8 @@ import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
 
 const SERVER = process.env.STREAM95_SERVER ?? 'http://127.0.0.1:1995';
+// The control deck (apps/deck) has its own Vite server in development.
+const DECK = process.env.STREAM95_DECK ?? 'http://localhost:5174';
 
 /**
  * @react95/icons ships no `sideEffects` field, so any barrel import (including the
@@ -18,6 +20,7 @@ const react95IconsSideEffectFree = (): Plugin => ({
 
 // In development the overlay runs on Vite (5173) and talks to the local server
 // through this proxy; in production the server itself serves the built files.
+// /dock/ goes to the deck's dev server (HMR included), so the links work like in production.
 export default defineConfig({
   plugins: [react(), react95IconsSideEffectFree()],
   server: {
@@ -26,6 +29,7 @@ export default defineConfig({
     proxy: {
       '/api': { target: SERVER, changeOrigin: false },
       '/ws': { target: SERVER.replace(/^http/, 'ws'), ws: true },
+      '/dock': { target: DECK, changeOrigin: false, ws: true },
     },
   },
   build: {

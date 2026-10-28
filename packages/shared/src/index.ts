@@ -2,6 +2,7 @@ export * from './events.js';
 export * from './layout.js';
 export * from './persona.js';
 export * from './settings.js';
+export * from './sfx.js';
 export * from './types.js';
 export * from './voices.js';
 

@@ -47,6 +47,7 @@ alterada.
   `http://localhost:1995/scene/<id>`.
 - **stream95 · Áudio (TTS + jingles)**: uma única fonte compartilhada por todas as cenas, com
   "Controlar áudio via OBS" e monitoramento em "Monitorar e enviar" (você ouve e a live também).
+  É ela que toca a voz, os jingles dos alertas e a **mesa de sons** do painel.
 - Atalhos **Ctrl+Alt+1** a **Ctrl+Alt+8** para trocar de cena. Atalhos de cena valem só na coleção
   ativa, então não colidem com os de outras coleções.
 
@@ -83,7 +84,7 @@ Se você prefere manter suas próprias cenas, use só as peças:
 
 | URL                         | O que é                                                                 |
 | --------------------------- | ----------------------------------------------------------------------- |
-| `/overlay/audio`            | Player de TTS e jingles (obrigatório para ter som)                      |
+| `/overlay/audio`            | Player de voz, jingles e mesa de sons (obrigatório para ter som)        |
 | `/overlay/all`              | Chat, enquete, barra de tarefas, Clippy, balões e alertas numa fonte só |
 | `/overlay/chat?x=&y=&w=&h=` | Só o chat, posicionado em pixels lógicos (960x540)                      |
 | `/overlay/alerts`           | Diálogos de alerta, tela azul e balões                                  |
@@ -94,11 +95,25 @@ Se você prefere manter suas próprias cenas, use só as peças:
 Parâmetros úteis em qualquer URL: `?checker` mostra as áreas transparentes como xadrez e
 `?scale=1` mostra a cena em 960x540.
 
-## 3. Painel (dock)
+## 3. Painel (dock, celular e tablet)
 
-**Docks → Docks de navegador personalizados**, nome `stream95`, URL `http://localhost:1995/dock`.
-O painel modera o chat, controla o Clippy e a voz, simula alertas, abre enquetes, comanda pomodoro e
-contadores e troca de cena.
+**Docks → Docks de navegador personalizados**, nome `stream95`, URL `http://localhost:1995/dock/`
+(o endereço antigo, sem a barra no fim, redireciona). O painel modera o chat, toca a mesa de sons,
+controla o assistente e a voz, simula alertas, abre enquetes, comanda pomodoro e contadores e troca
+de cena.
+
+O mesmo painel abre no celular ou no tablet, na mesma rede Wi-Fi do PC:
+
+1. Rode `npm start`. O terminal mostra o endereço do painel para o celular e um QR code.
+2. Aponte a câmera do celular para o QR code e abra o link. O aparelho fica pareado.
+3. Na primeira vez, o Windows pode perguntar se o Node.js pode usar a rede: permita em
+   **Redes privadas**.
+
+O código do QR vale 10 minutos e serve uma vez. Para parear outro aparelho depois, abra
+**Config → Aparelhos** no painel do PC: lá aparecem um QR novo, o código e a lista de aparelhos, com o
+botão para remover cada um. Detalhes de segurança em [api.md](api.md#regras-de-acesso).
+
+Os sons tocam sempre no PC, pela fonte de áudio do OBS, nunca no celular. Veja [sons.md](sons.md).
 
 ## 4. Trocar de cena pelo painel
 
@@ -113,10 +128,12 @@ Sem isso, o resto funciona normalmente; só a troca de cena pelo painel fica ind
 
 ## Problemas comuns
 
-| Sintoma                       | Causa provável                                          | Solução                                                    |
-| ----------------------------- | ------------------------------------------------------- | ---------------------------------------------------------- |
-| Cena aparece branca no OBS    | Servidor desligado                                      | `npm start` e, na fonte, **Atualizar**                     |
-| Sem som do TTS ou dos alertas | Fonte de áudio ausente ou sem "Controlar áudio via OBS" | Veja o passo 3 da montagem manual                          |
-| Som duplicado                 | Mais de uma fonte `/overlay/audio` ativa                | Use a mesma fonte (referência) em todas as cenas           |
-| Captura do navegador preta    | Método de captura errado                                | Use "Windows 10 (1903 e superior)" na captura de janela    |
-| Captura de tela vazia         | Monitor não escolhido                                   | Escolha o monitor nas propriedades ou use `--capture-from` |
+| Sintoma                       | Causa provável                                                                           | Solução                                                           |
+| ----------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Cena aparece branca no OBS    | Servidor desligado                                                                       | `npm start` e, na fonte, **Atualizar**                            |
+| Sem som do TTS ou dos alertas | Fonte de áudio ausente ou sem "Controlar áudio via OBS"                                  | Veja o passo 3 da montagem manual                                 |
+| Botão de som "sem retorno"    | Fonte de áudio fechada, sem "Controlar áudio via OBS" ou aberta num navegador sem clique | Veja o passo 3 da montagem manual; no navegador, clique na página |
+| Celular não abre o painel     | Firewall do Windows ou rede diferente                                                    | Mesma rede do PC; permita o Node.js em "Redes privadas"           |
+| Som duplicado                 | Mais de uma fonte `/overlay/audio` ativa                                                 | Use a mesma fonte (referência) em todas as cenas                  |
+| Captura do navegador preta    | Método de captura errado                                                                 | Use "Windows 10 (1903 e superior)" na captura de janela           |
+| Captura de tela vazia         | Monitor não escolhido                                                                    | Escolha o monitor nas propriedades ou use `--capture-from`        |
