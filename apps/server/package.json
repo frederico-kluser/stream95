@@ -14,16 +14,20 @@
     "bench:moderation": "tsx scripts/bench-moderation.ts"
   },
   "dependencies": {
+    "@fastify/multipart": "^10.1.6",
     "@fastify/static": "^10.1.8",
     "@fastify/websocket": "^11.3.4",
     "@stream95/shared": "*",
     "@twurple/auth": "^8.2.0",
     "@twurple/chat": "^8.2.0",
     "fastify": "^5.12.7",
+    "ffmpeg-static": "^5.3.0",
     "obscenity": "^0.4.6",
+    "qrcode": "^1.5.4",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@types/qrcode": "^1.5.6",
     "@types/ws": "^8.18.1",
     "tsup": "^9.0.0",
     "tsx": "^4.23.15"

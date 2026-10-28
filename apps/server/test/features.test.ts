@@ -1,6 +1,6 @@
 import { defaultSettings, type PollState, type PomodoroState, type TtsItem } from '@stream95/shared';
 import { describe, expect, it, vi } from 'vitest';
-import { cleanAnswer, pickAnimation } from '../src/assistant/assistant.js';
+import { cleanAnswer, pickAnimation, systemPrompt } from '../src/assistant/assistant.js';
 import { CommandRouter, parseCommand } from '../src/commands/commands.js';
 import { CounterService } from '../src/features/counters.js';
 import { toGithubEvent } from '../src/features/github.js';
@@ -83,6 +83,20 @@ describe('TtsService', () => {
 });
 
 describe('assistant helpers', () => {
+  it('tells the model the name picked in the deck, and stays quiet with the default name', () => {
+    const persona = 'Você é o Clippy, assistente da live.';
+    expect(systemPrompt({ persona, name: 'Bitinho' }, 'cena atual: Eu + Chat')).toBe(
+      `${persona}
+
+Seu nome nesta live é Bitinho: use esse nome ao se apresentar.
+
+Contexto da live agora: cena atual: Eu + Chat`,
+    );
+    expect(systemPrompt({ persona, name: 'Clippy' }, 'x')).toBe(`${persona}
+
+Contexto da live agora: x`);
+  });
+
   it('cleans markdown/emoji and keeps whole sentences', () => {
     expect(cleanAnswer('Use `range(10, -1, -1)` 😄 **sempre**.', 200)).toBe('Use range(10, -1, -1) sempre.');
     const long = 'Primeira frase curta. Segunda frase bem mais longa que não cabe no limite.';
