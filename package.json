@@ -1,6 +1,6 @@
 {
   "name": "stream95",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Overlay de live estilo Windows 95 (React95) para canais de programação old school: chat moderado por IA, leitura dos comentários em voz, alertas, Clippy e cenas prontas para o OBS.",
   "license": "MIT",
