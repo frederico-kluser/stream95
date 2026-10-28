@@ -10,6 +10,7 @@ import type {
   PollState,
   PomodoroState,
   ServiceStatus,
+  SfxLibrary,
   StreamAlert,
   Toast,
   TtsItem,
@@ -25,6 +26,8 @@ export type Snapshot = {
   log: ModeratedMessage[];
   /** Recent questions and technical problems flagged by Jev (dock only). */
   attention: AttentionItem[];
+  /** Sound library and soundboard buttons. */
+  sfx: SfxLibrary;
   poll: PollState | null;
   pomodoro: PomodoroState;
   counters: Counter[];
@@ -47,6 +50,10 @@ export type ServerEvent =
   | { type: 'mod:log'; item: ModeratedMessage }
   | { type: 'mod:signals'; id: string; signals: ModerationSignals }
   | { type: 'mod:attention'; item: AttentionItem }
+  | { type: 'sfx:library'; library: SfxLibrary }
+  | { type: 'sfx:play'; playId: string; soundId: string; url: string; volume: number }
+  | { type: 'sfx:stop' }
+  | { type: 'sfx:played'; playId: string; soundId: string; latencyMs: number }
   | { type: 'alert'; alert: StreamAlert }
   | { type: 'tts:play'; item: TtsItem }
   | { type: 'tts:skip' }
@@ -70,6 +77,7 @@ export const DOCK_ONLY_EVENTS: ReadonlySet<ServerEventType> = new Set([
   'mod:signals',
   'mod:attention',
   'chat:incoming',
+  'sfx:played',
 ]);
 
 /** Events the audio player cares about (it ignores everything else). */
@@ -78,11 +86,19 @@ export const AUDIO_EVENTS: ReadonlySet<ServerEventType> = new Set([
   'settings',
   'tts:play',
   'tts:skip',
+  'sfx:play',
+  'sfx:stop',
+  'sfx:library',
   'alert',
+  'bsod',
 ]);
 
 /** Client → server message (only used for liveness; actions go through the REST API). */
-export type ClientEvent = { type: 'ping'; t: number } | { type: 'tts:done'; id: string };
+export type ClientEvent =
+  | { type: 'ping'; t: number }
+  | { type: 'tts:done'; id: string }
+  /** The audio source on the PC started a sound (lets the server measure tap-to-sound latency). */
+  | { type: 'sfx:played'; playId: string };
 
 export function isServerEvent(value: unknown): value is ServerEvent {
   return typeof value === 'object' && value !== null && typeof (value as { type?: unknown }).type === 'string';

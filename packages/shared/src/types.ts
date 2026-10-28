@@ -71,6 +71,56 @@ export type ModerationVerdict = {
   signals?: ModerationSignals;
 };
 
+/** Colors a soundboard button can take (mapped to theme tokens in the deck). */
+export const SFX_COLORS = ['slate', 'red', 'orange', 'amber', 'green', 'teal', 'blue', 'violet', 'pink'] as const;
+export type SfxColor = (typeof SFX_COLORS)[number];
+
+/**
+ * A sound file in the library folder on the streaming PC. Playback always happens on the PC (the
+ * OBS audio source), never on the phone. Every file is converted once to 48 kHz PCM WAV.
+ */
+export type SfxSound = {
+  /** Stable id derived from the path relative to the library folder. */
+  id: string;
+  /** File name without extension. */
+  name: string;
+  /** Subfolder inside the library ('' for the root), used as a category. */
+  category: string;
+  /** Path relative to the library folder, with forward slashes. */
+  file: string;
+  status: 'ready' | 'converting' | 'error';
+  durationMs?: number;
+  /** Changes when the source file changes (cache-busting for the converted WAV). */
+  rev?: string;
+  error?: string;
+};
+
+/** A button on the deck mapped to a sound of the library. */
+export type SfxButton = {
+  id: string;
+  label: string;
+  soundId: string | null;
+  emoji?: string;
+  color: SfxColor;
+  /** 0..1, multiplied by the master soundboard volume. */
+  volume: number;
+};
+
+export type SfxLibrary = {
+  /** Absolute path of the library folder on the PC (shown so the user knows where to drop files). */
+  dir: string;
+  sounds: SfxSound[];
+  buttons: SfxButton[];
+};
+
+/** A phone, tablet or computer allowed to use the deck over the local network. */
+export type PairedDevice = {
+  id: string;
+  name: string;
+  createdAt: number;
+  lastSeenAt: number | null;
+};
+
 /** Something the streamer should look at now: a question to answer or a reported technical problem. */
 export type AttentionItem = {
   messageId: string;

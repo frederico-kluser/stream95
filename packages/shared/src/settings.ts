@@ -92,12 +92,25 @@ export const AssistantSettingsSchema = z.object({
     .enum(['Clippy', 'Merlin', 'Rover', 'Links', 'Bonzi', 'Peedy', 'Genie', 'Genius', 'Rocky', 'F1'])
     .default('Clippy'),
   persona: z.string().min(20).max(4000).default(DEFAULT_ASSISTANT_PERSONA),
+  /** Show the animated assistant on the overlay (its answers still appear when hidden). */
+  showAgent: z.boolean().default(true),
+  /** The animated assistant reacts to every new chat message, unless it is in the middle of an animation. */
+  reactToChat: z.boolean().default(true),
   speak: z.boolean().default(true),
   voice: z.enum(TTS_VOICES).default('callum'),
   replyInChat: z.boolean().default(true),
   maxAnswerChars: z.number().int().min(60).max(500).default(260),
   userCooldownSec: z.number().int().min(0).max(600).default(30),
   globalCooldownSec: z.number().int().min(0).max(120).default(6),
+});
+
+export const SfxSettingsSchema = z.object({
+  /** Master volume of the soundboard (0..1). */
+  volume: z.number().min(0).max(1).default(0.8),
+  /** stack = sounds overlap; restart = the same sound restarts; single = a new sound stops the others. */
+  overlap: z.enum(['stack', 'restart', 'single']).default('restart'),
+  /** Loudness-normalize converted sounds (EBU R128, -16 LUFS) so every meme plays at the same volume. */
+  normalize: z.boolean().default(true),
 });
 
 export const AlertSettingsSchema = z.object({
@@ -127,6 +140,7 @@ export const SettingsSchema = z.object({
   tts: TtsSettingsSchema.prefault({}),
   assistant: AssistantSettingsSchema.prefault({}),
   alerts: AlertSettingsSchema.prefault({}),
+  sfx: SfxSettingsSchema.prefault({}),
   overlay: OverlaySettingsSchema.prefault({}),
   socials: z
     .array(SocialSchema)
