@@ -27,22 +27,35 @@ mudança em `frederico-kluser/stream95`. Ao participar, você concorda com o
    npm run check   # lint + typecheck + formatação + testes + build
    ```
 
-Para desenvolver com recarga automática: `npm run dev` (servidor em `:1995`, Vite em `:5173`).
-Sem chave da OpenRouter, a moderação usa só as regras locais e o Clippy fica mudo; os testes não
-precisam de rede.
+Para desenvolver com recarga automática: `npm run dev` (servidor em `:1995`, overlay em `:5173` e
+painel em `:5174`; abra o painel por `http://localhost:5173/dock/`, que encaminha para ele). Sem chave
+da OpenRouter, a moderação usa só as regras locais e o assistente fica mudo; os testes não precisam de
+rede. O conversor de sons usa o ffmpeg que o pacote `ffmpeg-static` baixa no `npm ci`.
 
 ## Onde fica cada coisa
 
 | Pasta                                | O que tem                                                                  |
 | ------------------------------------ | -------------------------------------------------------------------------- |
 | `apps/server`                        | Servidor Fastify: chat da Twitch, moderação, TTS, assistente, alertas, API |
-| `apps/overlay`                       | Cenas, overlays e painel (React 19 + React95 + Vite)                       |
+| `apps/server/src/sfx`                | Mesa de sons: pasta, conversão para WAV 48 kHz, botões e rotas             |
+| `apps/server/src/lan`                | Acesso pela rede: pareamento por QR code, tokens e regras de acesso        |
+| `apps/overlay`                       | Cenas, overlays e fonte de áudio (React 19 + React95 + Vite)               |
+| `apps/deck`                          | Painel de controle moderno (React 19 + Tailwind v4 + shadcn + Motion UI)   |
 | `packages/shared`                    | Tipos, configurações (zod), eventos do WebSocket e geometria das cenas     |
 | `obs`                                | Gerador da coleção de cenas do OBS                                         |
 | `.agents/skills/react95-agent-skill` | Referência completa do React95 para agentes de código                      |
 
-Antes de mexer em componentes visuais, leia a skill do React95: ela documenta as armadilhas do
-framework (camadas de CSS, `Frame`, `Modal`, `Tabs`, ícones e Clippy).
+Antes de mexer em componentes visuais do overlay, leia a skill do React95: ela documenta as
+armadilhas do framework (camadas de CSS, `Frame`, `Modal`, `Tabs`, ícones e Clippy).
+
+O painel (`apps/deck`) segue outra linha: visual moderno, sem referências ao Windows. Use os
+componentes que já estão em `apps/deck/src/components/ui` (shadcn) e `apps/deck/src/components/motion-ui`
+(Motion UI) antes de escrever um novo, e só classes semânticas do tema (`bg-card`,
+`text-muted-foreground`, `bg-sfx-red/15`…), nunca cores fixas. Os arquivos dessas duas pastas são
+gerados pelo CLI do shadcn: não edite, crie um componente seu que os use. Para **adicionar** um
+componente do Motion UI (`npx shadcn@latest add @motion/<nome>`) é preciso um token do
+[Motion+](https://motion.dev/plus) na variável de ambiente `MOTION_TOKEN`. Para instalar, testar e
+compilar o projeto, nenhum token é necessário.
 
 ## Ramificações
 
