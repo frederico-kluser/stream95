@@ -45,5 +45,3 @@ export function readableColor(hex: string | undefined, fallback = '#000080'): st
       .padStart(2, '0');
   return `#${h(r)}${h(g)}${h(b)}`;
 }
-
-export const usd = (v: number) => `US$ ${v < 0.01 ? v.toFixed(4) : v.toFixed(2)}`;

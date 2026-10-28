@@ -70,14 +70,6 @@ body.s95-opaque {
   color: var(--r95-color-materialTextDisabled, #808080);
 }
 
-.s95-error {
-  background: #fff0f0;
-  border: 1px solid #a00;
-  color: #a00;
-  padding: 4px;
-  margin-bottom: 4px;
-}
-
 .s95-pop {
   animation: s95-pop 160ms steps(4, end);
 }
@@ -312,6 +304,11 @@ body.s95-opaque {
   border-width: 9px 0 0 9px;
   border-style: solid;
   border-color: #000 transparent transparent transparent;
+}
+
+/* Agent hidden (showAgent off): the balloon takes its place and has nothing to point at */
+.s95-clippy-balloon-solo::after {
+  display: none;
 }
 
 .s95-clippy-q {
@@ -725,140 +722,6 @@ body.s95-opaque {
   color: #fff;
   text-shadow: 1px 1px 0 #000;
   padding: 4px;
-}
-
-/* ------------------------------------------------------------------- dock */
-.s95-dock {
-  min-height: 100vh;
-  padding: 4px;
-}
-
-.s95-statusbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  padding: 3px 6px;
-  margin-bottom: 4px;
-  box-shadow: var(--r95-shadow-in);
-}
-
-.s95-tabs {
-  width: 100%;
-}
-
-.s95-tab {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 4px 0;
-}
-
-.s95-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 3px 0;
-}
-
-.s95-radios {
-  padding: 2px 0 0 2px;
-  min-width: 240px;
-}
-
-.s95-queue-item {
-  padding: 4px;
-  margin-bottom: 4px;
-  background: var(--r95-color-inputBackground, #fff);
-  box-shadow: var(--r95-shadow-in);
-}
-
-.s95-log-line .s95-tag {
-  margin-left: 4px;
-}
-
-.s95-attention {
-  padding: 2px 0;
-  border-bottom: 1px dotted var(--r95-color-borderDark);
-}
-
-.s95-attention-techIssue .s95-tag,
-.s95-tag-warn {
-  background: #ffffcc;
-  color: #800000;
-}
-
-.s95-attention-question .s95-tag,
-.s95-tag-info {
-  background: #e0e8ff;
-  color: #000080;
-}
-
-.s95-log {
-  max-height: 260px;
-  overflow: auto;
-  background: var(--r95-color-inputBackground, #fff);
-  box-shadow: var(--r95-shadow-in);
-  padding: 3px;
-}
-
-.s95-log-line {
-  padding: 1px 0;
-  border-bottom: 1px dotted #ccc;
-}
-
-.s95-log-status {
-  display: inline-block;
-  width: 58px;
-  font-size: 10px;
-}
-
-.s95-log-shown .s95-log-status {
-  color: #006400;
-}
-.s95-log-held .s95-log-status {
-  color: #a06000;
-}
-.s95-log-rejected .s95-log-status {
-  color: #a00000;
-}
-.s95-log-expired .s95-log-status {
-  color: #808080;
-}
-
-.s95-linkbtn {
-  background: none;
-  border: none;
-  color: var(--r95-color-anchor);
-  text-decoration: underline;
-  cursor: pointer;
-  font: inherit;
-  margin-left: 6px;
-}
-
-.s95-pre {
-  white-space: pre-wrap;
-  background: var(--r95-color-inputBackground, #fff);
-  box-shadow: var(--r95-shadow-in);
-  padding: 4px;
-  margin: 4px 0;
-  font-family: inherit;
-}
-
-.s95-grid-buttons {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 4px;
-}
-
-.s95-two {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-
-.s95-two textarea {
-  width: 100%;
 }
 
 /* ------------------------------------------------------------------- home */

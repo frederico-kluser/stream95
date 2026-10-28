@@ -10,9 +10,9 @@ type Entry = { path: string; title: string; size: string; note: string };
 const OVERLAYS: Entry[] = [
   {
     path: '/overlay/audio',
-    title: 'Áudio (TTS + jingles)',
+    title: 'Áudio (voz, jingles e sons)',
     size: '400x60',
-    note: 'Adicione UMA vez em todas as cenas, com "Controlar áudio via OBS".',
+    note: 'Toca a voz, os jingles e os sons do painel. Adicione UMA vez em todas as cenas, com "Controlar áudio via OBS".',
   },
   {
     path: '/overlay/all',
@@ -64,11 +64,16 @@ export function Home() {
   return (
     <Frame className="s95-home" bgColor="$material">
       <h1>
-        <Computer variant="32x32_4" /> stream95 <small>— overlays Windows 95 para o OBS</small>
+        <Computer variant="32x32_4" /> stream95 <small>overlays Windows 95 para o OBS</small>
       </h1>
       <p>
-        Servidor {connected ? 'conectado' : 'desconectado'} · canal <b>twitch.tv/{settings.channel}</b> · painel:{' '}
-        <a href="/dock">/dock</a> (adicione em OBS → Docks → Docks de navegador personalizados)
+        Servidor {connected ? 'conectado' : 'desconectado'} · canal <b>twitch.tv/{settings.channel}</b>
+      </p>
+      <p>
+        Painel de controle: <CopyUrl path="/dock/" />
+        <br />
+        No OBS, adicione em Docks → Docks de navegador personalizados. No celular, leia o QR code que aparece no
+        terminal ao iniciar o servidor.
       </p>
       <Fieldset legend={`Cenas completas (fonte de navegador ${CANVAS.w}x${CANVAS.h})`}>
         <table className="s95-table">

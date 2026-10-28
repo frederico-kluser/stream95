@@ -9,6 +9,7 @@ import { Stage } from '../components/Stage';
 import { Taskbar } from '../components/Taskbar';
 import { ToastLayer } from '../components/Toasts';
 import { PollWindow } from '../components/Widgets';
+import { bindSfxPlayer, SfxPlayer, type SfxStatus } from '../lib/sfx-player';
 import { audioContext, playJingle } from '../lib/sound';
 import { getClient, useStream, useStreamEvent } from '../lib/stream';
 
@@ -75,8 +76,8 @@ export function AllOverlay() {
 }
 
 /**
- * The ONLY page that makes sound: TTS queue + alert jingles. Add it once to OBS
- * (with "Control audio via OBS") so audio never plays twice.
+ * The ONLY page that makes sound: TTS queue, alert jingles and the soundboard. Add it once to
+ * OBS (with "Control audio via OBS") so audio never plays twice.
  */
 export function AudioOverlay() {
   const { settings, connected } = useStream();
@@ -85,7 +86,31 @@ export function AudioOverlay() {
   const playing = useRef(false);
   const [now, setNow] = useState<TtsItem | null>(null);
   const [blocked, setBlocked] = useState(false);
+  const [sfx, setSfx] = useState<SfxStatus | null>(null);
   const volume = settings.tts.volume;
+  // On stream this source must be invisible: the status line only shows with ?debug.
+  const debug = q().has('debug');
+
+  // Soundboard: every sound of the library stays decoded in memory and starts the moment the deck asks.
+  useEffect(() => {
+    const client = getClient();
+    const player = new SfxPlayer({
+      audio: audioContext,
+      onPlayed: (playId) => client.send({ type: 'sfx:played', playId }),
+      overlap: () => client.getSnapshot().settings.sfx?.overlap ?? 'restart',
+      onBlocked: () => setBlocked(true),
+      onError: (soundId, error) =>
+        console.warn(
+          `Erro: o som ${soundId} não carregou (${String(error)}) — Solução: confira o arquivo na pasta de sons e reescaneie a biblioteca no painel.`,
+        ),
+      ...(debug ? { onStatus: setSfx } : {}),
+    });
+    const unbind = bindSfxPlayer(client, player);
+    return () => {
+      unbind();
+      player.dispose();
+    };
+  }, [debug]);
 
   const playNext = () => {
     const item = queue.current.shift();
@@ -139,19 +164,18 @@ export function AudioOverlay() {
     if (!playing.current) playNext();
   };
 
-  // On stream this source must be invisible: the status line only shows with ?debug.
-  const debug = q().has('debug');
   return (
     <div className="s95-audio-page">
       {debug && (
         <div>
           stream95 · áudio {connected ? '● conectado' : '○ desconectado'} ·{' '}
           {now ? `falando: ${now.text}` : 'aguardando'}
+          {sfx && ` · sons na memória: ${sfx.ready} de ${sfx.total}`}
         </div>
       )}
       {blocked && (
         <Button onClick={unlock}>
-          Clique para liberar o áudio (o navegador bloqueou o autoplay — no OBS isso não acontece)
+          Clique para liberar o som. O navegador bloqueou o áudio automático. No OBS isso não acontece.
         </Button>
       )}
     </div>

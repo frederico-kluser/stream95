@@ -7,8 +7,6 @@ import { setElementVars } from '@vanilla-extract/dynamic';
 // same approach React95's own Storybook uses — no page reload, no second stylesheet.
 type ThemeTokens = (typeof tokens)['win95'];
 
-export const THEME_NAMES = Object.keys(tokens);
-
 export function applyTheme(name: string): void {
   const all = tokens as unknown as Record<string, ThemeTokens>;
   setElementVars(document.documentElement, contract, all[name] ?? tokens.win95);
