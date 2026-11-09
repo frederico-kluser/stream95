@@ -16,7 +16,7 @@
   "dependencies": {
     "@fastify/multipart": "^10.1.6",
     "@fastify/static": "^10.1.8",
-    "@fastify/websocket": "^11.3.4",
+    "@fastify/websocket": "^11.3.6",
     "@stream95/shared": "*",
     "@twurple/auth": "^8.2.0",
     "@twurple/chat": "^8.2.0",
