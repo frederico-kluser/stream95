@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@react95/clippy": "^2.2.3",
-    "@react95/core": "^10.0.6",
+    "@react95/core": "^10.4.5",
     "@react95/icons": "^2.8.0",
     "@stream95/shared": "*",
     "@vanilla-extract/dynamic": "^2.1.5",
