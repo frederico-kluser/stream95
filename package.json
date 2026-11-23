@@ -50,14 +50,14 @@
     "sfx:pack": "tsx apps/server/scripts/sfx-starter-pack.ts"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.3",
-    "@commitlint/cli": "^21.2.3",
+    "@biomejs/biome": "2.6.8",
+    "@commitlint/cli": "^21.2.4",
     "@commitlint/config-conventional": "^21.2.3",
-    "@types/node": "^26.6.5",
-    "@vitest/coverage-v8": "^5.0.5",
-    "concurrently": "^10.0.6",
+    "@types/node": "^26.6.6",
+    "@vitest/coverage-v8": "^5.1.0",
+    "concurrently": "^10.0.7",
     "husky": "^9.1.7",
-    "lint-staged": "^17.6.0",
+    "lint-staged": "^17.6.1",
     "tsx": "^4.23.15",
     "typescript": "~6.0.3",
     "vitest": "^5.0.5"
